@@ -1,0 +1,46 @@
+\Microsoft\Windows\AppID\SmartScreenSpecific
+\Microsoft\Windows\Application Experience\AitAgent
+\Microsoft\Windows\Application Experience\MareBackup
+\Microsoft\Windows\Application Experience\Microsoft Compatibility Appraiser
+\Microsoft\Windows\Application Experience\PcaPatchDbTask
+\Microsoft\Windows\Application Experience\ProgramDataUpdater
+\Microsoft\Windows\Application Experience\SdbinstMergeDbTask
+\Microsoft\Windows\Application Experience\StartupAppTask
+\Microsoft\Windows\Autochk\Proxy
+\Microsoft\Windows\CloudExperienceHost\CreateObjectTask
+\Microsoft\Windows\Customer Experience Improvement Program\BthSQM
+\Microsoft\Windows\Customer Experience Improvement Program\Consolidator
+\Microsoft\Windows\Customer Experience Improvement Program\KernelCeipTask
+\Microsoft\Windows\Customer Experience Improvement Program\Uploader
+\Microsoft\Windows\Customer Experience Improvement Program\UsbCeip
+\Microsoft\Windows\Device Information\Device
+\Microsoft\Windows\Diagnosis\Scheduled
+\Microsoft\Windows\DiskCleanup\SilentCleanup
+\Microsoft\Windows\DiskDiagnostic\Microsoft-Windows-DiskDiagnosticDataCollector
+\Microsoft\Windows\DiskDiagnostic\Microsoft-Windows-DiskDiagnosticResolver
+\Microsoft\Windows\DiskFootprint\Diagnostics
+\Microsoft\Windows\ErrorDetails\EnableErrorDetailsUpdate
+\Microsoft\Windows\Feedback\Siuf\DmClient
+\Microsoft\Windows\Feedback\Siuf\DmClientOnScenarioDownload
+\Microsoft\Windows\File Classification\Property Definition Sync
+\Microsoft\Windows\FileHistory\File History (maintenance mode)
+\Microsoft\Windows\Flighting\FeatureConfig\ReconcileFeatures
+\Microsoft\Windows\InstallService\ScanForUpdates
+\Microsoft\Windows\Location\Notifications
+\Microsoft\Windows\Maintenance\WinSAT
+\Microsoft\Windows\NetTrace\GatherNetworkInfo
+\Microsoft\Windows\PerfTrack\BackgroundConfigSurveyor
+\Microsoft\Windows\PI\Sqm-Tasks
+\Microsoft\Windows\Power Efficiency Diagnostics\AnalyzeSystem
+\Microsoft\Windows\Server Manager\ServerManager
+\Microsoft\Windows\Shell\CreateObjectTask
+\Microsoft\Windows\Shell\FamilySafetyMonitor
+\Microsoft\Windows\Shell\FamilySafetyRefresh
+\Microsoft\Windows\Shell\FamilySafetyUpload
+\Microsoft\Windows\Shell\IndexerAutomaticMaintenance
+\Microsoft\Windows\Speech\SpeechModelDownloadTask
+\Microsoft\Windows\Windows Defender\Windows Defender Cache Maintenance
+\Microsoft\Windows\Windows Error Reporting\QueueReporting
+\Microsoft\Windows\Windows Filtering Platform\BfeOnServiceStartTypeChange
+\Microsoft\Windows\WindowsUpdate\sih
+\Microsoft\Windows\WindowsUpdate\sihboot

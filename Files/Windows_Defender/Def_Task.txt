@@ -1,0 +1,10 @@
+\Microsoft\Windows\Windows Defender\Windows Defender Cleanup
+\Microsoft\Windows\Windows Defender\Windows Defender Scheduled Scan
+\Microsoft\Windows\Windows Defender\Windows Defender Verification
+\Microsoft\Windows\Windows Defender\Windows Defender Cache Maintenance
+\Microsoft\Windows\Windows Defender\Windows Defender Cache Maintenance
+\Microsoft\Windows\Windows Defender\Windows Defender Verification
+\Microsoft\Windows\Shell\FamilySafetyUpload
+\Microsoft\Windows\DiskDiagnostic\Microsoft-Windows-DiskDiagnosticDataCollector
+\Microsoft\Windows\Application Experience\Microsoft Compatibility Appraiser
+\Microsoft\Windows\Application Experience\ProgramDataUpdater

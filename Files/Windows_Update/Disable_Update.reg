@@ -1,0 +1,33 @@
+Windows Registry Editor Version 5.00
+
+[HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate]
+"DoNotConnectToWindowsUpdateInternetLocations"=dword:00000001
+"DisableWindowsUpdateAccess"=dword:00000001
+"ElevateNonAdmins"=dword:00000000
+"TargetGroup"="NoUpdates"
+"TargetGroupEnabled"=dword:00000001
+"WUServer"="127.0.0.1"
+"WUStatusServer"="127.0.0.1"
+"DisableOSUpgrade"=dword:00000001
+
+[HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU]
+"NoAutoUpdate"=dword:00000001
+"AUOptions"=dword:00000001
+"NoAutoRebootWithLoggedOnUsers"=dword:00000001
+"UseWUServer"=dword:00000001
+
+[HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings]
+"PauseFeatureUpdatesEndTime"="2099-12-31T00:00:00.000Z"
+"PauseQualityUpdatesEndTime"="2099-12-31T00:00:00.000Z"
+"PauseUpdatesExpiryTime"="2099-12-31T00:00:00.000Z"
+
+[HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update]
+"IncludeRecommendedUpdates"=dword:00000000
+"EnableFeaturedSoftware"=dword:00000000
+
+[HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\DeliveryOptimization\Config]
+"DODownloadMode"=dword:00000000
+
+[HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\WindowsStore]
+"AutoDownload"=dword:00000002
+"DisableAutoDownload"=dword:00000001
