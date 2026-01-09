@@ -2,7 +2,12 @@
 setlocal enabledelayedexpansion
 title Tweak - Windows Optimization Tool
 
-
+>nul 2>&1 "%SystemRoot%\system32\cacls.exe" "%SystemRoot%\system32\config\system"
+if !errorlevel! neq 0 (
+    echo Requesting administrator privileges
+    PowerShell -Command "Start-Process -Verb RunAs -FilePath '%~f0' -ArgumentList 'restarted'"
+    exit /b
+)
 
 :: Script main menu
 :MENU
@@ -47,25 +52,20 @@ call :INVALID_INPUT "(0-8)" "MENU"
 cls & echo. & echo.
 echo                        ------------------------------- Performance ------------------------------
 echo.
-echo                          [1] Services                                      [2] Scheduler task              
+echo                          [1] Services                                       [2] Scheduler task
 echo.
-echo                          [3] Speed up boot                                 [4] Clean up
+echo                          [3] Speed up boot                                  [4] BCD
 echo.
-echo                          [5] Visual effects                                [6] Power plan
+echo                          [5] Clean up                                       [6] Power plan 
 echo.
-echo                          [7] Hrdware info                                  [0] Back                                                    
+echo                          [7] Visual effects                                 [8] Hrdware info
+echo.
+echo                                                         [0] Back
 echo.
 echo                        ---------------------------------------------------------------------------
 
 echo. & set /p per_choice="Select an option: "
-if "%per_choice%"=="1" (
-    set Routine=SERVICES_TWEAKS
-    set Rev_Routine=REV_SERVICES
-    set Apply=Set Windows services to manual and disabled according to priority
-	set Revert=Reset Windows services to default settings
-    set menu=PERFORMANCE_MENU
-    goto SUB_MENU
-)
+if "%per_choice%"=="1" goto SERVICES_MENU
 if "%per_choice%"=="2" (
     set Routine=TASK_TWEAKS
     set Rev_Routine=REV_TASK
@@ -82,19 +82,44 @@ if "%per_choice%"=="3" (
     set menu=PERFORMANCE_MENU
     goto SUB_MENU
 )
-if "%per_choice%"=="4" goto CLEAN_UP
-if "%per_choice%"=="5" goto VISUAL_EFFECTS
+if "%per_choice%"=="4" (
+    set Routine=BCD
+    set Rev_Routine=REV_BCD
+    set Apply=BCD tweaks
+	set Revert=Default BCD
+    set menu=PERFORMANCE_MENU
+    goto SUB_MENU
+)
+if "%per_choice%"=="5" goto CLEAN_UP
 if "%per_choice%"=="6" goto POWER_PLAN_MENU
-if "%per_choice%"=="7" goto HW_INFO
+if "%per_choice%"=="7" goto VISUAL_EFFECTS
+if "%per_choice%"=="8" goto HW_INFO
 if "%per_choice%"=="0" goto MENU
 call :INVALID_INPUT "(0-7)" "PERFORMANCE_MENU"
 
+:SERVICES_MENU
+cls & echo. & echo.
+echo                        -------------------------------- Services ---------------------------------
+echo.
+echo                          [1] Services Tweaks                                [2] Services Tweaks(Safe)
+echo.
+echo                          [3] Default services                               [0] Back
+echo.
+echo                        ---------------------------------------------------------------------------
+
+echo. & set /p choice="Select an option: "
+if "%choice%"=="1" goto SERVICES_TWEAKS
+if "%choice%"=="2" goto SERVICES_TWEAKS_SAFE
+if "%choice%"=="3" goto REV_SERVICES
+if "%choice%"=="0" goto MENU
+
+call :INVALID_INPUT "(0-3)" "SERVICES_MENU"
 
 :SERVICES_TWEAKS
 cls & echo Optimizing system services...
 call :PATH "Services" "Service_Tweaks"
 
-for /f "usebackq tokens=1,2 delims=," %%A in (%~dp0Files\Services\Services_Tweaks.txt) do (
+for /f "usebackq tokens=1,2 delims=," %%A in (%~dp0Files\Performance\Services_Tweaks.txt) do (
     if not "%%A"=="" (
         if not "%%A:~0,1%"=="#" (
             set "SVC=%%A"
@@ -150,13 +175,75 @@ for /f "usebackq tokens=1,2 delims=," %%A in (%~dp0Files\Services\Services_Tweak
     )
 )
 
-call :GO PERFORMANCE_MENU
+call :GO SERVICES_MENU
+
+:SERVICES_TWEAKS_SAFE
+cls & echo Optimizing system services Safely...
+call :PATH "Services" "Service_Tweaks_Safe"
+
+for /f "usebackq tokens=1,2 delims=," %%A in (%~dp0Files\Performance\Services_Tweaks_Safe.txt) do (
+    if not "%%A"=="" (
+        if not "%%A:~0,1%"=="#" (
+            set "SVC=%%A"
+            set "MODE=%%B"
+			
+            echo !SVC! -> !MODE!
+            
+            set "RESULT=SUCCESS"
+            
+            if /I "!MODE!"=="Automatic" (
+                sc config "!SVC!" start= auto >nul 2>&1
+                if errorlevel 1 (
+                    sc query "!SVC!" >nul 2>&1
+                    if errorlevel 1 (
+                        set "RESULT=NOT_FOUND"
+                    ) else (
+                        set "RESULT=FAILED"
+                    )
+                )
+            ) else if /I "!MODE!"=="Manual" (
+                sc config "!SVC!" start= demand >nul 2>&1
+                if errorlevel 1 (
+                    sc query "!SVC!" >nul 2>&1
+                    if errorlevel 1 (
+                        set "RESULT=NOT_FOUND"
+                    ) else (
+                        set "RESULT=FAILED"
+                    )
+                )
+            ) else if /I "!MODE!"=="Disabled" (
+                sc config "!SVC!" start= disabled >nul 2>&1
+                if errorlevel 1 (
+                    sc query "!SVC!" >nul 2>&1
+                    if errorlevel 1 (
+                        set "RESULT=NOT_FOUND"
+                    ) else (
+                        set "RESULT=FAILED"
+                    )
+                )
+            ) else if /I "!MODE!"=="AutomaticDelayedStart" (
+                sc config "!SVC!" start= delayed-auto >nul 2>&1
+                if errorlevel 1 (
+                    sc query "!SVC!" >nul 2>&1
+                    if errorlevel 1 (
+                        set "RESULT=NOT_FOUND"
+                    ) else (
+                        set "RESULT=FAILED"
+                    )
+                )
+            )          
+            echo !SVC! _ !MODE!  : !RESULT! >> "!LogFile!"
+        )
+    )
+)
+
+call :GO SERVICES_MENU
 
 :REV_SERVICES
 cls & echo Reverting services to default configurations...
 call :PATH "Services" "Restore_Services"
 
-for /f "usebackq tokens=1,2 delims=," %%A in (%~dp0Files\Services\Default_Services.txt) do (
+for /f "usebackq tokens=1,2 delims=," %%A in (%~dp0Files\Performance\Default_Services.txt) do (
     if not "%%A"=="" (
         if not "%%A:~0,1%"=="#" (
             set "SVC=%%A"
@@ -212,14 +299,14 @@ for /f "usebackq tokens=1,2 delims=," %%A in (%~dp0Files\Services\Default_Servic
     )
 )
 
-call :GO PERFORMANCE_MENU
+call :GO SERVICES_MENU
 
 
 :TASK_TWEAKS
 cls & echo Disable unnecessary scheduled tasks...
 call :PATH "Scheduled_Tasks" "Disable_Scheduled_Tasks"
 
-for /f "tokens=*" %%i in (%~dp0Files\Scheduler_Task\Tasks_List.txt) do (
+for /f "tokens=*" %%i in (%~dp0Files\Performance\Tasks_List.txt) do (
     set "TASK_NAME=%%i"
     set "TASK_RESULT=SUCCESS"
     
@@ -242,7 +329,7 @@ call :GO PERFORMANCE_MENU
 cls & echo Enable scheduled tasks...
 call :PATH "Scheduled_Tasks" "Restore_Scheduled_Tasks"
 
-for /f "tokens=*" %%i in (%~dp0Files\Scheduler_Task\Tasks_List.txt) do (
+for /f "tokens=*" %%i in (%~dp0Files\Performance\Tasks_List.txt) do (
     set "TASK_NAME=%%i"
     set "TASK_RESULT=SUCCESS"
     
@@ -266,7 +353,8 @@ call :GO PERFORMANCE_MENU
 cls & echo Applying Boot Optimizations
 
 bcdedit /timeout 2 >nul 2>&1
-
+bcdedit /set bootux Disabled >nul 2>&1
+ 
 powercfg /hibernate on >nul 2>&1
 
 reg add "HKLM\SYSTEM\CurrentControlSet\Control" /v WaitToKillServiceTimeout /t REG_SZ /d 2000 /f >nul 2>&1
@@ -287,6 +375,7 @@ call :GO PERFORMANCE_MENU
 cls & echo Restoring Default Boot Settings
 
 bcdedit /timeout 10 >nul 2>&1
+bcdedit /deletevalue bootux >nul 2>&1
 
 powercfg /hibernate off >nul 2>&1
 
@@ -296,6 +385,95 @@ reg delete "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Serialize" /
 
 call :GO PERFORMANCE_MENU
 
+:BCD
+cls & echo Creating backup of BCD settings
+call :PATH "BCD" "BCD_Tweaks"
+
+bcdedit /export %ProgramData%\Windows_Optimization_Script\BCD\BCD_Backup >> "%LogFile%" 2>&1
+
+echo Removing useplatformclock setting
+bcdedit /deletevalue useplatformclock >> "%LogFile%" 2>&1
+
+echo Removing disabledynamictick setting
+bcdedit /deletevalue disabledynamictick >> "%LogFile%" 2>&1
+
+echo Setting TSC sync policy to Enhanced
+bcdedit /set tscsyncpolicy Enhanced >> "%LogFile%" 2>&1
+
+echo Enabling x2APIC policy
+bcdedit /set x2apicpolicy Enable >> "%LogFile%" 2>&1
+
+echo Setting config access policy to Default
+bcdedit /set configaccesspolicy Default >> "%LogFile%" 2>&1
+
+echo Setting MSI to Default
+bcdedit /set MSI Default >> "%LogFile%" 2>&1
+
+echo Disabling use of physical destination
+bcdedit /set usephysicaldestination No >> "%LogFile%" 2>&1
+
+echo Disabling use of firmware PCI settings
+bcdedit /set usefirmwarepcisettings No >> "%LogFile%" 2>&1
+
+echo Applying useplatformtick
+bcdedit /set useplatformtick yes >> "%LogFile%" 2>&1
+
+echo Applying uselegacyapicmode
+bcdedit /set uselegacyapicmode no >> "%LogFile%" 2>&1
+
+echo Applying testsigning
+bcdedit /set testsigning No >> "%LogFile%" 2>&1
+
+echo All performance optimizations applied successfully
+call :GO PERFORMANCE_MENU
+
+:REV_BCD
+cls & echo Restoring original BCD settings
+call :PATH "BCD" "Default_BCD"
+
+bcdedit /import %ProgramData%\Windows_Optimization_Script\BCD\BCD_Backup >> "%LogFile%" 2>&1
+
+if %errorlevel% neq 0 (
+    echo BCD file import failed. Executing alternative commands
+    echo Removing useplatformclock setting
+    bcdedit /deletevalue useplatformclock >> "%LogFile%" 2>&1
+	
+    echo Removing disabledynamictick setting
+    bcdedit /deletevalue disabledynamictick >> "%LogFile%" 2>&1
+	
+    echo Removing tscsyncpolicy setting
+    bcdedit /deletevalue tscsyncpolicy >> "%LogFile%" 2>&1
+	
+    echo Removing x2apicpolicy setting
+    bcdedit /deletevalue x2apicpolicy >> "%LogFile%" 2>&1
+	
+    echo Removing configaccesspolicy setting
+    bcdedit /deletevalue configaccesspolicy >> "%LogFile%" 2>&1
+	
+    echo Removing MSI setting
+    bcdedit /deletevalue MSI >> "%LogFile%" 2>&1
+	
+    echo Enabling use of physical destination
+    bcdedit /set usephysicaldestination Yes >> "%LogFile%" 2>&1
+	
+    echo Enabling use of firmware PCI settings
+    bcdedit /set usefirmwarepcisettings Yes >> "%LogFile%" 2>&1
+	
+	echo Restoring useplatformtick
+    bcdedit /deletevalue useplatformtick >> "%LogFile%" 2>&1
+
+    echo Restoring uselegacyapicmode
+    bcdedit /deletevalue uselegacyapicmode >> "%LogFile%" 2>&1
+
+    echo Restoring testsigning
+    bcdedit /deletevalue testsigning >> "%LogFile%" 2>&1
+	
+    echo Successfully restored to default settings
+) else (
+    echo Original BCD settings restored successfully
+)
+
+call :GO PERFORMANCE_MENU
 
 :CLEAN_UP
 cls & 	echo Cleaning Temp
@@ -347,10 +525,10 @@ if !BROWSERS_OPEN! equ 1 (
         )
         timeout /t 2 >nul
     ) else (
-        echo Skipping files currently used by browsers.
+        echo Skipping files currently used by browsers
     )
 ) else (
-    echo No browsers are currently running.
+    echo No browsers are currently running
 )
 
 if exist "%LOCALAPPDATA%\Google\Chrome\User Data" (
@@ -411,11 +589,13 @@ call :GO PERFORMANCE_MENU
 
 :POWER_PLAN_MENU
 cls & echo. & echo.
-echo                        ------------------------------ Power Plan ---------------------------------
+echo                        ------------------------------- Power Plan --------------------------------
 echo.
-echo                          [1] High Performance                                   [2] Balanced
+echo                          [1] High Performance                                  [2] Balanced
 echo.
-echo                          [3] Power Saver                                        [0] Back
+echo                          [3] Power Saver                                       [4] Active Plan
+echo.
+echo                                                         [0] Back
 echo.
 echo                        ---------------------------------------------------------------------------
 
@@ -423,12 +603,13 @@ echo. & set /p choice="Select an option: "
 if "%choice%"=="1" goto PLAN_HIGH
 if "%choice%"=="2" goto PLAN_BALANCED
 if "%choice%"=="3" goto PLAN_SAVER
+if "%choice%"=="4" goto ACTIVE_PLAN
 if "%choice%"=="0" goto PERFORMANCE_MENU
 call :INVALID_INPUT "(0-3)" "POWER_PLAN_MENU"
 
 :PLAN_HIGH
 cls & echo Activating High Performance power plan
-powercfg /setactive SCHEME_MAX >nul
+powercfg /setactive SCHEME_MIN >nul
 call :GO POWER_PLAN_MENU
 
 :PLAN_BALANCED
@@ -438,13 +619,42 @@ call :GO POWER_PLAN_MENU
 
 :PLAN_SAVER
 cls & echo Activating Power Saver plan
-powercfg /setactive SCHEME_MIN >nul
+powercfg /setactive SCHEME_MAX >nul
+call :GO POWER_PLAN_MENU
+
+:ACTIVE_PLAN
+cls
+set "TMP_FILE=%TEMP%\active_power_plan.guid"
+powercfg /getactivescheme > "%TMP_FILE%" 2>&1
+
+for /f "tokens=4" %%A in (%TMP_FILE%) do (
+    set "PLAN_GUID=%%A"
+)
+
+set "PLAN_GUID=%PLAN_GUID: =%"
+
+if /I "!PLAN_GUID!"=="381b4222-f694-41f0-9685-ff5bb260df2e" (
+    set "PLAN_NAME=Balanced"
+) else if /I "!PLAN_GUID!"=="8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c" (
+    set "PLAN_NAME=High Performance"
+) else if /I "!PLAN_GUID!"=="a1841308-3541-4fab-bc81-f71556f20b4a" (
+    set "PLAN_NAME=Power Saver"
+) else if /I "!PLAN_GUID!"=="e9a42b02-d5df-448d-aa00-03f14749eb61" (
+    set "PLAN_NAME=Ultimate Performance"
+) else (
+    set "PLAN_NAME=Unknown Power Plan"
+)
+
+echo Active Power Plan GUID : !PLAN_GUID!
+echo Active Power Plan Name : !PLAN_NAME!
+
+del "%TMP_FILE%" >nul 2>&1
 call :GO POWER_PLAN_MENU
 
 
 :HW_INFO
 cls & echo. & echo.
-echo                        ---------------------------------- HW Info --------------------------------
+echo                        -------------------------------- HW Info ----------------------------------
 echo.
 echo                          [1] CPU                                                   [2] RAM
 echo. 
@@ -524,7 +734,7 @@ echo                          [3] Windows Updates                               
 echo.
 echo                          [5] Enhance Security                              [6] Security Information
 echo.
-echo                                                             [0] Back
+echo                                                          [0] Back
 echo.
 echo                        ---------------------------------------------------------------------------
 
@@ -587,7 +797,7 @@ for %%S in (
 )
 
 echo Disable telemetry scheduled tasks...
-for /f "tokens=*" %%i in ("%~dp0Files\Telemetry\Scheduled_tasks_telemetry.txt") do (
+for /f "tokens=*" %%i in ("%~dp0Files\Security\Scheduled_tasks_telemetry.txt") do (
     set "TASK_NAME=%%i"
     set "TASK_RESULT=SUCCESS"
     
@@ -605,7 +815,7 @@ for /f "tokens=*" %%i in ("%~dp0Files\Telemetry\Scheduled_tasks_telemetry.txt") 
 )
 
 echo Disable telemetry from registry
-reg import "%~dp0Files\Telemetry\Disable_Telemetry.reg" >> "%LogFile%" 2>&1
+reg import "%~dp0Files\Security\Disable_Telemetry.reg" >> "%LogFile%" 2>&1
 
 echo Disable Powershell 7 Telemetry
 powershell -Command "[Environment]::SetEnvironmentVariable('POWERSHELL_TELEMETRY_OPTOUT', '1', 'Machine')"
@@ -664,9 +874,9 @@ for %%d in (
     telemetry.appex.bing.net
     cs1.wpc.v0cdn.net
     a-0001.a-msedge.net
-    pre.footprintpredict.com    
+    pre.footprintpredict.com
     i1.services.social.microsoft.com
-    i1.services.social.microsoft.com.nsatc.net  
+    i1.services.social.microsoft.com.nsatc.net
     feedback.windows.com
     feedback.microsoft-hohm.com
     feedback.search.microsoft.com 
@@ -679,6 +889,12 @@ for %%d in (
     a.ads2.msn.com
     adnexus.net
     adnxs.com
+	doubleclick.net
+	googleadservices.com
+	googlesyndication.com
+	googletagmanager.com
+	ads.yahoo.com
+	adsystem.microsoft.com
 ) do (
     findstr /i /c:"%%d" "%hostsPath%" >nul || echo 0.0.0.0 %%d>>"%hostsPath%"
 )
@@ -721,7 +937,7 @@ for %%L in (Application Security System Setup) do (
 )
 
 echo Cleaning registry entries
-reg import "%~dp0Files\Privacy_Cleanup\privacy_cleanup.reg" >> "%LogFile%" 2>&1
+reg import "%~dp0Files\Security\privacy_cleanup.reg" >> "%LogFile%" 2>&1
 
 set "BROWSERS=chrome.exe brave.exe msedge.exe firefox.exe"
 set BROWSERS_OPEN=0
@@ -833,7 +1049,7 @@ for %%S in (
     )
 )
 echo Disabling Scheduled Update Tasks
-for /f "tokens=*" %%i in ("%~dp0Files\Windows_Update\Scheduler_Update.txt") do (
+for /f "tokens=*" %%i in ("%~dp0Files\Security\Scheduler_Update.txt") do (
     set "TASK_NAME=%%i"
     set "TASK_RESULT=SUCCESS"
     
@@ -851,7 +1067,7 @@ for /f "tokens=*" %%i in ("%~dp0Files\Windows_Update\Scheduler_Update.txt") do (
 )
 
 echo Disable windows update from registry
-reg import "%~dp0Files\Windows_Update\Disable_Update.reg" >> "%LogFile%" 2>&1
+reg import "%~dp0Files\Security\Disable_Update.reg" >> "%LogFile%" 2>&1
 
 call :GO PRIVACY_SECURITY_MENU
 
@@ -881,7 +1097,7 @@ for %%S in (
 )
 
 echo Enabling Scheduled Update Tasks
-for /f "tokens=*" %%i in ("%~dp0Files\Windows_Update\Scheduler_Update.txt") do (
+for /f "tokens=*" %%i in ("%~dp0Files\Security\Scheduler_Update.txt") do (
     set "TASK_NAME=%%i"
     set "TASK_RESULT=SUCCESS"
     
@@ -899,7 +1115,7 @@ for /f "tokens=*" %%i in ("%~dp0Files\Windows_Update\Scheduler_Update.txt") do (
 )
 
 echo Restoring Original Update Registry
-reg import "%~dp0Files\Windows_Update\Enable_Update.reg" >> "%LogFile%" 2>&1
+reg import "%~dp0Files\Security\Enable_Update.reg" >> "%LogFile%" 2>&1
 
 call :GO PRIVACY_SECURITY_MENU
 
@@ -919,7 +1135,7 @@ for %%S in (WinDefend WdNisSvc SecurityHealthService Sense SgrmAgent SgrmBroker 
 ) || (echo [NOT FOUND] %%S>>"%LogFile%" 2>&1)
 
 echo Disable Defender scheduled tasks
-for /f "tokens=*" %%i in ("%~dp0Files\Windows_Defender\Def_Task.txt") do (
+for /f "tokens=*" %%i in ("%~dp0Files\Security\Def_Task.txt") do (
     set "TASK_NAME=%%i"
     set "TASK_RESULT=SUCCESS"
     
@@ -937,7 +1153,7 @@ for /f "tokens=*" %%i in ("%~dp0Files\Windows_Defender\Def_Task.txt") do (
 )
 
 echo Applying registry modifications
-reg import "%~dp0Files\Windows_Defender\Disable_Def.reg" >> "%LogFile%" 2>&1
+reg import "%~dp0Files\Security\Disable_Def.reg" >> "%LogFile%" 2>&1
 
 echo. & echo System restart is required for all changes to take effect.
 call :GO PRIVACY_SECURITY_MENU
@@ -957,7 +1173,7 @@ for %%S in (WinDefend WdNisSvc SecurityHealthService Sense SgrmAgent SgrmBroker 
 
 
 echo Enable Windows Defender services Scheduler Task
-for /f "tokens=*" %%i in ("%~dp0Files\Windows_Defender\Def_Task.txt") do (
+for /f "tokens=*" %%i in ("%~dp0Files\Security\Def_Task.txt") do (
     set "TASK_NAME=%%i"
     set "TASK_RESULT=SUCCESS"
     
@@ -975,7 +1191,7 @@ for /f "tokens=*" %%i in ("%~dp0Files\Windows_Defender\Def_Task.txt") do (
 )
 
 echo Restoring default registry settings
-reg import "%~dp0Files\Windows_Defender\Enable_Def.reg" >> "%LogFile%" 2>&1
+reg import "%~dp0Files\Security\Enable_Def.reg" >> "%LogFile%" 2>&1
 
 echo Enable Tamper Protection via PowerShell
 powershell -Command "Set-MpPreference -DisableTamperProtection 0" >nul 2>&1
@@ -994,7 +1210,7 @@ cls & echo Applying security hardening settings
 call :PATH "Enhance_Security" "Enhance"
 
 echo configure registry settings
-reg import "%~dp0Files\Enhance_Security\Enhance.reg" >> "%LogFile%" 2>&1
+reg import "%~dp0Files\Security\Enhance_Security.reg" >> "%LogFile%" 2>&1
 
 echo Disabling vulnerable Windows features
 for %%f in ("MicrosoftWindowsPowerShellV2" "MicrosoftWindowsPowerShellV2Root" "SMB1Protocol" "SmbDirect" "TFTP" "TelnetClient" "WCF-TCP-PortSharing45") do (
@@ -1030,7 +1246,7 @@ call :GO PRIVACY_SECURITY_MENU
 cls & echo Restoring default security settings
 call :PATH "Enhance_Security" "Rev_Enhance"
 
-reg import "%~dp0Files\Enhance_Security\Rev_Enhance.reg" >> "%LogFile%" 2>&1
+reg import "%~dp0Files\Security\Rev_Enhance_Security.reg" >> "%LogFile%" 2>&1
 
 echo Restoration completed
 call :GO PRIVACY_SECURITY_MENU
@@ -1040,7 +1256,7 @@ call :GO PRIVACY_SECURITY_MENU
 cls
 echo.
 echo                        ============================================================
-echo                                             SECURITY INFORMATION 
+echo                                             SECURITY INFORMATION
 echo                        ============================================================
 
 echo. & echo TCP Ports and owning processes:
@@ -1092,11 +1308,11 @@ call :GO PRIVACY_SECURITY_MENU
 
 :NETWORK_MENU
 cls & echo. & echo.
-echo                        -------------------------------- Network ----------------------------------
+echo                        --------------------------------- Network ---------------------------------
 echo.
-echo                          [1] Reset Network                                 [2] Wi-Fi Passwords
+echo                          [1] Reset Network                                  [2] Wi-Fi Passwords
 echo.
-echo                          [3] Network Info                                  [0] Back
+echo                          [3] Network Info                                   [0] Back
 echo.
 echo                        ---------------------------------------------------------------------------
 
@@ -1125,8 +1341,10 @@ arp -d * >> "%LogFile%" 2>&1
 echo Resetting Winsock catalog
 netsh winsock reset >> "%LogFile%" 2>&1
 
-echo Resetting TCP/IP stack
+echo Resetting TCP/UDP/IP stack
 netsh int ip reset >> "%LogFile%" 2>&1
+netsh int tcp reset >> "%LogFile%" 2>&1
+netsh int udp reset >> "%LogFile%" 2>&1
 
 echo Reloading the NetBIOS name cache
 nbtstat -R >> "%LogFile%" 2>&1
@@ -1134,15 +1352,28 @@ nbtstat -R >> "%LogFile%" 2>&1
 echo Sending NetBIOS name update
 nbtstat -RR >> "%LogFile%" 2>&1
 
-echo Disabling and re-enabling network adapters
-for /f "skip=3 tokens=4*" %%A in ('netsh interface show interface ^| findstr /R /C:"Connected" /C:"Disconnected"') do (
-    set "adapter=%%B"
-    if defined adapter (
-        echo    - Resetting !adapter! 
-        netsh interface set interface name="!adapter!" admin=disable >> "%LogFile%" 2>&1
-        timeout /t 2 >nul
-        netsh interface set interface name="!adapter!" admin=enable >> "%LogFile%" 2>&1
-        timeout /t 2 >nul
+echo Restart network adapters
+powershell -Command "exit (Get-Command Get-NetAdapter -ErrorAction SilentlyContinue | Measure-Object).Count" >nul 2>&1
+if %errorlevel% equ 0 ( 
+	powershell -Command "Get-NetAdapter | Where-Object { $_.Status -eq 'Up' } | Restart-NetAdapter -Confirm:$false -ErrorAction SilentlyContinue" >nul 2>&1
+    if %errorlevel% equ 0 (
+        echo Successfully restarted network adapters
+    ) else (
+        goto :use_netsh
+    )
+) else (
+    :use_netsh
+    echo Using netsh method  
+    for /f "skip=3 tokens=4*" %%A in ('netsh interface show interface ^| findstr /R /C:"Connected" /C:"Disconnected"') do (
+        set "adapter=%%B"
+        if defined adapter (
+            echo Resetting adapter: !adapter!
+            netsh interface set interface name="!adapter!" admin=disable >> "%LogFile%" 2>&1
+            timeout /t 2 >nul
+            netsh interface set interface name="!adapter!" admin=enable >> "%LogFile%" 2>&1
+            timeout /t 2 >nul
+            echo Successfully reset: !adapter! >> "%LogFile%"
+        )
     )
 )
 
@@ -1154,7 +1385,6 @@ ipconfig /registerdns >> "%LogFile%" 2>&1
 
 echo. & echo Restart your computer for all changes to take effect.
 call :GO NETWORK_MENU
-
 
 :WIFI_PASSWORDS
 cls & echo Showing Saved Networks and Passwords
@@ -1412,7 +1642,7 @@ call :GO PROGRAMS_MENU
 
 :CUSTOMIZATION_MENU
 cls & echo. & echo. 
-echo                        ----------------------------- Customization -------------------------------
+echo                        ------------------------------ Customization ------------------------------
 echo.
 echo                          [1] File Explorer                                    [2] Dark Mode
 echo.
@@ -1420,7 +1650,9 @@ echo                          [3] Power seeting                                 
 echo.
 echo                          [5] Classic Photo Viewer                             [6] Trash options 
 echo.
-echo                          [7] Context menu                                     [0] Back
+echo                          [7] Num Lock                                         [8] Context menu
+echo.
+echo                                                         [0] Back
 echo.
 echo                        ---------------------------------------------------------------------------
 
@@ -1446,7 +1678,7 @@ if "%choice%"=="4" (
     set Routine=SHORTCUT_ARROW
     set Rev_Routine=REV_SHORTCUT_ARROW
     set Apply=Remove arrow from shortcut
-	set Revert=Defaulte arrow shortcut
+	set Revert=Default arrow shortcut
     set menu=CUSTOMIZATION_MENU
     goto SUB_MENU
 )
@@ -1466,20 +1698,35 @@ if "%choice%"=="6" (
     set menu=CUSTOMIZATION_MENU
     goto SUB_MENU
 )
-if "%choice%"=="7" goto CONTEXT_MENU
+if "%choice%"=="6" (
+    set Routine=NUM_LOCK
+    set Rev_Routine=REV_NUM_LOCK
+    set Apply=Disable Num Lock, Caps Lock, and Scroll Lock when logging in
+	set Revert=Default Num Lock, Caps Lock, and Scroll Lock when logging in
+    set menu=CUSTOMIZATION_MENU
+    goto SUB_MENU
+)
+if "%choice%"=="8" goto CONTEXT_MENU
 if "%choice%"=="0" goto MENU
 
 call :INVALID_INPUT "(0-7)" "CUSTOMIZATION_MENU"
+
+:NUM_LOCK
+reg import "%~dp0Files\Customization\Disable_Num_Lock.reg" >nul
+
+:REV_NUM_LOCK
+reg import "%~dp0Files\Customization\Default_Num_Lock.reg" >nul
+
 
 :FILE_EXPLORER
 cls & echo. & echo.
 echo                        ----------------------------- File explorer -------------------------------
 echo.
-echo                          [1] File Extensions                                [2] Hidden files
+echo                          [1] File Extensions                                 [2] Hidden files
 echo.
-echo                          [3] Recent Files                                   [4] Open on this PC
+echo                          [3] Recent Files                                    [4] Open on this PC
 echo.
-echo                          [5] Path in Title Bar                              [0] Back
+echo                          [5] Path in Title Bar                               [0] Back
 echo.
 echo                        ---------------------------------------------------------------------------
 
@@ -1609,20 +1856,20 @@ call :GO CUSTOMIZATION_MENU
 
 
 :PHOTO_VIEWER
-reg import "%~dp0Files\Windows_Photo_Viewer\Restore_Photo_Viewer.reg" >nul
+reg import "%~dp0Files\Customization\Restore_Photo_Viewer.reg" >nul
 call :GO CUSTOMIZATION_MENU
 
 :REV_PHOTO_VIEWER
-reg import "%~dp0Files\Windows_Photo_Viewer\Removing_Photo_Viewer.reg" >nul
+reg import "%~dp0Files\Customization\Removing_Photo_Viewer.reg" >nul
 call :GO CUSTOMIZATION_MENU
 
 
 :TRASH_OPTIONS
-reg import "%~dp0Files\Trach_Options\Disable_Trach.reg" >nul 2>&1
+reg import "%~dp0Files\Customization\Disable_Trach.reg" >nul 2>&1
 call :GO CUSTOMIZATION_MENU
 
 :REV_TRASH_OPTIONS
-reg import "%~dp0Files\Trach_Options\Default_Trach.reg" >nul 2>&1
+reg import "%~dp0Files\Customization\Default_Trach.reg" >nul 2>&1
 call :GO CUSTOMIZATION_MENU
 
 
@@ -1632,7 +1879,7 @@ echo                        ------------------------------- Context menu -------
 echo.
 echo                          [1] Add CMD                                       [2] Add Restart Explorer
 echo. 
-echo                          [3] Add Killing frozen process                    [0] Back         
+echo                          [3] Add Killing frozen                            [0] Back
 echo.    
 echo                        ---------------------------------------------------------------------------
 
@@ -1825,11 +2072,11 @@ call :GO SYSTEM_MENU
 
 :ACTIVATION
 cls & echo. & echo.
-echo                        --------------------------------- Activation ------------------------------
+echo                        -------------------------------- Activation -------------------------------
 echo.
 echo                          [1] Windows and office                                   [2] Status
 echo. 
-echo                                                           [0]Back
+echo                                                          [0]Back
 echo.
 echo                        ---------------------------------------------------------------------------
 
@@ -1854,7 +2101,7 @@ call :GO ACTIVATION
 :SYSTEM_INFO
 cls
 echo                        ============================================================
-echo                                             SYSTEM INFORMATION 
+echo                                             SYSTEM INFORMATION
 echo                        ============================================================
 echo.
 
@@ -1923,7 +2170,7 @@ call :GO SYSTEM_MENU
 
 
 :TOOLS_MENU
-cls & echo. & echo.                                                     
+cls & echo. & echo.
 echo                        ---------------------------------- Tools ----------------------------------
 echo.
 echo                          [1] System Check                                      [2] DISM Tools
@@ -1932,7 +2179,7 @@ echo                          [3] Defragment Drive                              
 echo. 
 echo                          [5] Memory Diagnostic                                 [6] Disk Cleanup
 echo.
-echo                                                          [0] Back
+echo                                                         [0] Back
 echo.
 echo                        ---------------------------------------------------------------------------
 
@@ -1960,7 +2207,7 @@ echo                          [1] Fix corruption                                
 echo.                    
 echo                          [3] Deep check                                         [4] Fast check
 echo.
-echo                                                          [0] Back
+echo                                                         [0] Back
 echo.
 echo                        ---------------------------------------------------------------------------
 
@@ -2093,9 +2340,9 @@ echo.
 echo.
 echo                        ----------------------------------- OTHER ---------------------------------
 echo.
-echo                           [1] Run Chris Titus Tool                           [2] Run OO Shutup 10    
+echo                           [1] Run Chris Titus Tool                           [2] Run OO Shutup 10
 echo.
-echo                           [3] Internet speed test                            [0] Back        
+echo                           [3] Internet speed test                            [0] Back
 echo.
 echo                        ---------------------------------------------------------------------------
 echo.
@@ -2175,7 +2422,7 @@ goto :eof
 cls & echo. & echo.
 
 echo      [1] %Apply% 
-echo.                                              
+echo.
 echo      [2] %Revert%
 echo.
 echo      [0] Back

@@ -59,3 +59,6 @@ Windows Registry Editor Version 5.00
 [-HKEY_CURRENT_USER\Software\Policies\Microsoft\Windows\Explorer]
 [-HKEY_CURRENT_USER\Software\Policies\Microsoft\Windows\CloudContent]
 [-HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\GameDVR]
+
+[HKEY_CURRENT_USER\Control Panel\Accessibility\StickyKeys]
+"Flags"="510"
