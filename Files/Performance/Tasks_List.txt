@@ -1,3 +1,7 @@
+\Microsoft\Office\Office 15 Subscription Heartbeat
+\Microsoft\Office\OfficeTelemetryAgentFallBack2016
+\Microsoft\Office\OfficeTelemetryAgentLogOn
+\Microsoft\Office\OfficeTelemetryAgentLogOn2016
 \Microsoft\Windows\AppID\SmartScreenSpecific
 \Microsoft\Windows\Application Experience\AitAgent
 \Microsoft\Windows\Application Experience\MareBackup
@@ -6,6 +10,8 @@
 \Microsoft\Windows\Application Experience\ProgramDataUpdater
 \Microsoft\Windows\Application Experience\SdbinstMergeDbTask
 \Microsoft\Windows\Application Experience\StartupAppTask
+\Microsoft\Windows\ApplicationData\appuriverifierdaily
+\Microsoft\Windows\ApplicationData\DsSvcCleanup
 \Microsoft\Windows\Autochk\Proxy
 \Microsoft\Windows\CloudExperienceHost\CreateObjectTask
 \Microsoft\Windows\Customer Experience Improvement Program\BthSQM
@@ -20,18 +26,34 @@
 \Microsoft\Windows\DiskDiagnostic\Microsoft-Windows-DiskDiagnosticResolver
 \Microsoft\Windows\DiskFootprint\Diagnostics
 \Microsoft\Windows\ErrorDetails\EnableErrorDetailsUpdate
+\Microsoft\Windows\ExploitGuard\ExploitGuard MDM policy Refresh
 \Microsoft\Windows\Feedback\Siuf\DmClient
 \Microsoft\Windows\Feedback\Siuf\DmClientOnScenarioDownload
 \Microsoft\Windows\File Classification\Property Definition Sync
 \Microsoft\Windows\FileHistory\File History (maintenance mode)
 \Microsoft\Windows\Flighting\FeatureConfig\ReconcileFeatures
+\Microsoft\Windows\Flighting\FeatureConfig\UsageDataFlushing
+\Microsoft\Windows\Flighting\FeatureConfig\UsageDataReporting
+\Microsoft\Windows\Input\InputSettingsRestoreDataAvailable
+\Microsoft\Windows\Input\LocalUserSyncDataAvailable
+\Microsoft\Windows\Input\MouseSyncDataAvailable
+\Microsoft\Windows\Input\PenSyncDataAvailable
+\Microsoft\Windows\Input\syncpensettings
+\Microsoft\Windows\Input\TouchpadSyncDataAvailable
 \Microsoft\Windows\InstallService\ScanForUpdates
+\Microsoft\Windows\InstallService\ScanForUpdatesAsUser
 \Microsoft\Windows\Location\Notifications
+\Microsoft\Windows\Location\WindowsActionDialog
 \Microsoft\Windows\Maintenance\WinSAT
+\Microsoft\Windows\Maps\MapsToastTask
+\Microsoft\Windows\Maps\MapsUpdateTask
+\Microsoft\Windows\MemoryDiagnostic\ProcessMemoryDiagnosticEvents
+\Microsoft\Windows\MemoryDiagnostic\RunFullMemoryDiagnostic
 \Microsoft\Windows\NetTrace\GatherNetworkInfo
 \Microsoft\Windows\PerfTrack\BackgroundConfigSurveyor
 \Microsoft\Windows\PI\Sqm-Tasks
 \Microsoft\Windows\Power Efficiency Diagnostics\AnalyzeSystem
+\Microsoft\Windows\Registry\RegIdleBackup
 \Microsoft\Windows\Server Manager\ServerManager
 \Microsoft\Windows\Shell\CreateObjectTask
 \Microsoft\Windows\Shell\FamilySafetyMonitor
@@ -39,8 +61,18 @@
 \Microsoft\Windows\Shell\FamilySafetyUpload
 \Microsoft\Windows\Shell\IndexerAutomaticMaintenance
 \Microsoft\Windows\Speech\SpeechModelDownloadTask
+\Microsoft\Windows\StateRepository\MaintenanceTasks
+\Microsoft\Windows\SystemRestore\SR
+\Microsoft\Windows\Time Synchronization\ForceSynchronizeTime
+\Microsoft\Windows\Time Synchronization\SynchronizeTime
+\Microsoft\Windows\WDI\ResolutionHost
 \Microsoft\Windows\Windows Defender\Windows Defender Cache Maintenance
+\Microsoft\Windows\Windows Defender\Windows Defender Cleanup
+\Microsoft\Windows\Windows Defender\Windows Defender Scheduled Scan
+\Microsoft\Windows\Windows Defender\Windows Defender Verification
 \Microsoft\Windows\Windows Error Reporting\QueueReporting
 \Microsoft\Windows\Windows Filtering Platform\BfeOnServiceStartTypeChange
+\Microsoft\Windows\WindowsUpdate\Automatic App Update
 \Microsoft\Windows\WindowsUpdate\sih
 \Microsoft\Windows\WindowsUpdate\sihboot
+\Microsoft\Office\OfficeTelemetryAgentFallBack
