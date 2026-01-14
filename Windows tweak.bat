@@ -1,10 +1,15 @@
 @echo off
 setlocal enabledelayedexpansion
-title Tweak - Windows Optimization Tool
+title Windows Optimization Tool
 
+net session >nul 2>&1
+if %errorlevel% neq 0 (
+    echo This script must be run as Administrator
+    echo Right-click and choose "Run as administrator"
+    pause
+    exit
+)
 
-
-:: Script main menu
 :MENU
 cls
 echo.
@@ -26,10 +31,7 @@ echo                        ----------------------------------------------------
 echo.
 echo.
 
-:: Prompt user selection
 set /p choice="Select an option: "
-
-:: Process user selection
 if "%choice%"=="1" goto PERFORMANCE_MENU
 if "%choice%"=="2" goto PRIVACY_SECURITY_MENU
 if "%choice%"=="3" goto NETWORK_MENU
@@ -40,33 +42,29 @@ if "%choice%"=="7" goto TOOLS_MENU
 if "%choice%"=="8" goto OTHER_MENU
 if "%choice%"=="0" exit
 
-:: Invalid input handler
-call :INVALID_INPUT "(0-8)" "MENU"
+echo. & echo [ERROR] Invalid selection. Please choose a valid option between (0-8)
+pause
+goto MENU
 
 :PERFORMANCE_MENU
 cls & echo. & echo.
 echo                        ------------------------------- Performance ------------------------------
 echo.
-echo                          [1] Services                                      [2] Scheduler task              
+echo                          [1] Services                                       [2] Scheduler task
 echo.
-echo                          [3] Speed up boot                                 [4] Clean up
+echo                          [3] Speed up boot                                  [4] BCD
 echo.
-echo                          [5] Visual effects                                [6] Power plan
+echo                          [5] Clean up                                       [6] Power plan 
 echo.
-echo                          [7] Hrdware info                                  [0] Back                                                    
+echo                          [7] Visual effects                                 [8] Hrdware info
+echo.
+echo                                                         [0] Back
 echo.
 echo                        ---------------------------------------------------------------------------
 
-echo. & set /p per_choice="Select an option: "
-if "%per_choice%"=="1" (
-    set Routine=SERVICES_TWEAKS
-    set Rev_Routine=REV_SERVICES
-    set Apply=Set Windows services to manual and disabled according to priority
-	set Revert=Reset Windows services to default settings
-    set menu=PERFORMANCE_MENU
-    goto SUB_MENU
-)
-if "%per_choice%"=="2" (
+echo. & set /p choice="Select an option: "
+if "%choice%"=="1" goto SERVICES_MENU
+if "%choice%"=="2" (
     set Routine=TASK_TWEAKS
     set Rev_Routine=REV_TASK
     set Apply=Disable unnecessary scheduled tasks
@@ -74,7 +72,7 @@ if "%per_choice%"=="2" (
     set menu=PERFORMANCE_MENU
     goto SUB_MENU
 )
-if "%per_choice%"=="3" (
+if "%choice%"=="3" (
     set Routine=BOOT
     set Rev_Routine=REV_BOOT
     set Apply=Speed up system startup
@@ -82,19 +80,59 @@ if "%per_choice%"=="3" (
     set menu=PERFORMANCE_MENU
     goto SUB_MENU
 )
-if "%per_choice%"=="4" goto CLEAN_UP
-if "%per_choice%"=="5" goto VISUAL_EFFECTS
-if "%per_choice%"=="6" goto POWER_PLAN_MENU
-if "%per_choice%"=="7" goto HW_INFO
-if "%per_choice%"=="0" goto MENU
-call :INVALID_INPUT "(0-7)" "PERFORMANCE_MENU"
+if "%choice%"=="4" (
+    set Routine=BCD
+    set Rev_Routine=REV_BCD
+    set Apply=BCD tweaks
+	set Revert=Default BCD
+    set menu=PERFORMANCE_MENU
+    goto SUB_MENU
+)
+if "%choice%"=="5" goto CLEAN_UP
+if "%choice%"=="6" goto POWER_PLAN_MENU
+if "%choice%"=="7" goto VISUAL_EFFECTS
+if "%choice%"=="8" goto HW_INFO
+if "%choice%"=="0" goto MENU
+echo. & echo [ERROR] Invalid selection. Please choose a valid option between (0-8)
+pause
+goto PERFORMANCE_MENU
 
+:SERVICES_MENU
+cls & echo. & echo.
+echo                        -------------------------------- Services ---------------------------------
+echo.
+echo                          [1] Services Tweaks                                [2] Services Tweaks(Safe)
+echo.
+echo                          [3] Default services                               [0] Back
+echo.
+echo                        ---------------------------------------------------------------------------
 
-:SERVICES_TWEAKS
-cls & echo Optimizing system services...
-call :PATH "Services" "Service_Tweaks"
+echo. & set /p choice="Select an option: "
+if "%choice%"=="1" (
+    set Log=Service_Tweaks
+    set File=%~dp0Files\Performance\Services_Tweaks.txt
+    goto SET_SERVICES
+)
+if "%choice%"=="2" (
+    set Log=Service_Tweaks_Safe
+    set File=%~dp0Files\Performance\Services_Tweaks_Safe.txt
+    goto SET_SERVICES
+)
+if "%choice%"=="3" (
+    set Log=Restore_Services
+    set File=%~dp0Files\Performance\Default_Services.txt
+    goto SET_SERVICES
+)
+if "%choice%"=="4" goto HW_INFO
+echo. & echo [ERROR] Invalid selection. Please choose a valid option between 
+pause
+goto MENU "(0-3)" "PERFORMANCE_MENU"
 
-for /f "usebackq tokens=1,2 delims=," %%A in (%~dp0Files\Services\Services_Tweaks.txt) do (
+:SET_SERVICES
+cls & echo Configure system services...
+call :PATH "Services" "%Log%"
+
+for /f "usebackq tokens=1,2 delims=," %%A in ("%File%") do (
     if not "%%A"=="" (
         if not "%%A:~0,1%"=="#" (
             set "SVC=%%A"
@@ -150,76 +188,14 @@ for /f "usebackq tokens=1,2 delims=," %%A in (%~dp0Files\Services\Services_Tweak
     )
 )
 
-call :GO PERFORMANCE_MENU
-
-:REV_SERVICES
-cls & echo Reverting services to default configurations...
-call :PATH "Services" "Restore_Services"
-
-for /f "usebackq tokens=1,2 delims=," %%A in (%~dp0Files\Services\Default_Services.txt) do (
-    if not "%%A"=="" (
-        if not "%%A:~0,1%"=="#" (
-            set "SVC=%%A"
-            set "MODE=%%B"
-			
-            echo !SVC! -> !MODE!
-            
-            set "RESULT=SUCCESS"
-            
-            if /I "!MODE!"=="Automatic" (
-                sc config "!SVC!" start= auto >nul 2>&1
-                if errorlevel 1 (
-                    sc query "!SVC!" >nul 2>&1
-                    if errorlevel 1 (
-                        set "RESULT=NOT_FOUND"
-                    ) else (
-                        set "RESULT=FAILED"
-                    )
-                )
-            ) else if /I "!MODE!"=="Manual" (
-                sc config "!SVC!" start= demand >nul 2>&1
-                if errorlevel 1 (
-                    sc query "!SVC!" >nul 2>&1
-                    if errorlevel 1 (
-                        set "RESULT=NOT_FOUND"
-                    ) else (
-                        set "RESULT=FAILED"
-                    )
-                )
-            ) else if /I "!MODE!"=="Disabled" (
-                sc config "!SVC!" start= disabled >nul 2>&1
-                if errorlevel 1 (
-                    sc query "!SVC!" >nul 2>&1
-                    if errorlevel 1 (
-                        set "RESULT=NOT_FOUND"
-                    ) else (
-                        set "RESULT=FAILED"
-                    )
-                )
-            ) else if /I "!MODE!"=="AutomaticDelayedStart" (
-                sc config "!SVC!" start= delayed-auto >nul 2>&1
-                if errorlevel 1 (
-                    sc query "!SVC!" >nul 2>&1
-                    if errorlevel 1 (
-                        set "RESULT=NOT_FOUND"
-                    ) else (
-                        set "RESULT=FAILED"
-                    )
-                )
-            )          
-            echo !SVC! _ !MODE!  : !RESULT! >> "!LogFile!"
-        )
-    )
-)
-
-call :GO PERFORMANCE_MENU
-
+call :GO SERVICES_MENU
 
 :TASK_TWEAKS
 cls & echo Disable unnecessary scheduled tasks...
 call :PATH "Scheduled_Tasks" "Disable_Scheduled_Tasks"
 
-for /f "tokens=*" %%i in (%~dp0Files\Scheduler_Task\Tasks_List.txt) do (
+for /f "tokens=*" %%i in (%~dp0Files\Performance\Tasks_List.txt) do (
+
     set "TASK_NAME=%%i"
     set "TASK_RESULT=SUCCESS"
     
@@ -242,7 +218,7 @@ call :GO PERFORMANCE_MENU
 cls & echo Enable scheduled tasks...
 call :PATH "Scheduled_Tasks" "Restore_Scheduled_Tasks"
 
-for /f "tokens=*" %%i in (%~dp0Files\Scheduler_Task\Tasks_List.txt) do (
+for /f "tokens=*" %%i in (%~dp0Files\Performance\Tasks_List.txt) do (
     set "TASK_NAME=%%i"
     set "TASK_RESULT=SUCCESS"
     
@@ -261,14 +237,12 @@ for /f "tokens=*" %%i in (%~dp0Files\Scheduler_Task\Tasks_List.txt) do (
 
 call :GO PERFORMANCE_MENU
 
-
 :BOOT
 cls & echo Applying Boot Optimizations
 
 bcdedit /timeout 2 >nul 2>&1
-
-powercfg /hibernate on >nul 2>&1
-
+bcdedit /set bootux Disabled >nul 2>&1
+ 
 reg add "HKLM\SYSTEM\CurrentControlSet\Control" /v WaitToKillServiceTimeout /t REG_SZ /d 2000 /f >nul 2>&1
 
 reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Serialize" /v StartupDelayInMSec /t REG_DWORD /d 0 /f >nul 2>&1
@@ -287,8 +261,7 @@ call :GO PERFORMANCE_MENU
 cls & echo Restoring Default Boot Settings
 
 bcdedit /timeout 10 >nul 2>&1
-
-powercfg /hibernate off >nul 2>&1
+bcdedit /deletevalue bootux >nul 2>&1
 
 reg add "HKLM\SYSTEM\CurrentControlSet\Control" /v WaitToKillServiceTimeout /t REG_SZ /d 5000 /f >nul 2>&1
 
@@ -296,6 +269,95 @@ reg delete "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Serialize" /
 
 call :GO PERFORMANCE_MENU
 
+:BCD
+cls & echo Creating backup of BCD settings
+call :PATH "BCD" "BCD_Tweaks"
+
+bcdedit /export %ProgramData%\Windows_Optimization_Script\BCD\BCD_Backup >> "%LogFile%" 2>&1
+
+echo Removing useplatformclock setting
+bcdedit /deletevalue useplatformclock >> "%LogFile%" 2>&1
+
+echo Removing disabledynamictick setting
+bcdedit /deletevalue disabledynamictick >> "%LogFile%" 2>&1
+
+echo Setting TSC sync policy to Enhanced
+bcdedit /set tscsyncpolicy Enhanced >> "%LogFile%" 2>&1
+
+echo Enabling x2APIC policy
+bcdedit /set x2apicpolicy Enable >> "%LogFile%" 2>&1
+
+echo Setting config access policy to Default
+bcdedit /set configaccesspolicy Default >> "%LogFile%" 2>&1
+
+echo Setting MSI to Default
+bcdedit /set MSI Default >> "%LogFile%" 2>&1
+
+echo Disabling use of physical destination
+bcdedit /set usephysicaldestination No >> "%LogFile%" 2>&1
+
+echo Disabling use of firmware PCI settings
+bcdedit /set usefirmwarepcisettings No >> "%LogFile%" 2>&1
+
+echo Applying useplatformtick
+bcdedit /set useplatformtick yes >> "%LogFile%" 2>&1
+
+echo Applying uselegacyapicmode
+bcdedit /set uselegacyapicmode no >> "%LogFile%" 2>&1
+
+echo Applying testsigning
+bcdedit /set testsigning No >> "%LogFile%" 2>&1
+
+echo All performance optimizations applied successfully
+call :GO PERFORMANCE_MENU
+
+:REV_BCD
+cls & echo Restoring original BCD settings
+call :PATH "BCD" "Default_BCD"
+
+bcdedit /import %ProgramData%\Windows_Optimization_Script\BCD\BCD_Backup >> "%LogFile%" 2>&1
+
+if %errorlevel% neq 0 (
+    echo BCD file import failed. Executing alternative commands
+    echo Removing useplatformclock setting
+    bcdedit /deletevalue useplatformclock >> "%LogFile%" 2>&1
+	
+    echo Removing disabledynamictick setting
+    bcdedit /deletevalue disabledynamictick >> "%LogFile%" 2>&1
+	
+    echo Removing tscsyncpolicy setting
+    bcdedit /deletevalue tscsyncpolicy >> "%LogFile%" 2>&1
+	
+    echo Removing x2apicpolicy setting
+    bcdedit /deletevalue x2apicpolicy >> "%LogFile%" 2>&1
+	
+    echo Removing configaccesspolicy setting
+    bcdedit /deletevalue configaccesspolicy >> "%LogFile%" 2>&1
+	
+    echo Removing MSI setting
+    bcdedit /deletevalue MSI >> "%LogFile%" 2>&1
+	
+    echo Enabling use of physical destination
+    bcdedit /set usephysicaldestination Yes >> "%LogFile%" 2>&1
+	
+    echo Enabling use of firmware PCI settings
+    bcdedit /set usefirmwarepcisettings Yes >> "%LogFile%" 2>&1
+	
+	echo Restoring useplatformtick
+    bcdedit /deletevalue useplatformtick >> "%LogFile%" 2>&1
+
+    echo Restoring uselegacyapicmode
+    bcdedit /deletevalue uselegacyapicmode >> "%LogFile%" 2>&1
+
+    echo Restoring testsigning
+    bcdedit /deletevalue testsigning >> "%LogFile%" 2>&1
+	
+    echo Successfully restored to default settings
+) else (
+    echo Original BCD settings restored successfully
+)
+
+call :GO PERFORMANCE_MENU
 
 :CLEAN_UP
 cls & 	echo Cleaning Temp
@@ -347,10 +409,10 @@ if !BROWSERS_OPEN! equ 1 (
         )
         timeout /t 2 >nul
     ) else (
-        echo Skipping files currently used by browsers.
+        echo Skipping files currently used by browsers
     )
 ) else (
-    echo No browsers are currently running.
+    echo No browsers are currently running
 )
 
 if exist "%LOCALAPPDATA%\Google\Chrome\User Data" (
@@ -411,11 +473,13 @@ call :GO PERFORMANCE_MENU
 
 :POWER_PLAN_MENU
 cls & echo. & echo.
-echo                        ------------------------------ Power Plan ---------------------------------
+echo                        ------------------------------- Power Plan --------------------------------
 echo.
-echo                          [1] High Performance                                   [2] Balanced
+echo                          [1] High Performance                                  [2] Balanced
 echo.
-echo                          [3] Power Saver                                        [0] Back
+echo                          [3] Power Saver                                       [4] Active Plan
+echo.
+echo                                                         [0] Back
 echo.
 echo                        ---------------------------------------------------------------------------
 
@@ -423,12 +487,16 @@ echo. & set /p choice="Select an option: "
 if "%choice%"=="1" goto PLAN_HIGH
 if "%choice%"=="2" goto PLAN_BALANCED
 if "%choice%"=="3" goto PLAN_SAVER
+if "%choice%"=="4" goto ACTIVE_PLAN
 if "%choice%"=="0" goto PERFORMANCE_MENU
-call :INVALID_INPUT "(0-3)" "POWER_PLAN_MENU"
+
+echo. & echo [ERROR] Invalid selection. Please choose a valid option between (0-3)
+pause
+goto POWER_PLAN_MENU
 
 :PLAN_HIGH
 cls & echo Activating High Performance power plan
-powercfg /setactive SCHEME_MAX >nul
+powercfg /setactive SCHEME_MIN >nul
 call :GO POWER_PLAN_MENU
 
 :PLAN_BALANCED
@@ -438,17 +506,46 @@ call :GO POWER_PLAN_MENU
 
 :PLAN_SAVER
 cls & echo Activating Power Saver plan
-powercfg /setactive SCHEME_MIN >nul
+powercfg /setactive SCHEME_MAX >nul
+call :GO POWER_PLAN_MENU
+
+:ACTIVE_PLAN
+cls
+set "TMP_FILE=%TEMP%\active_power_plan.guid"
+powercfg /getactivescheme > "%TMP_FILE%" 2>&1
+
+for /f "tokens=4" %%A in (%TMP_FILE%) do (
+    set "PLAN_GUID=%%A"
+)
+
+set "PLAN_GUID=%PLAN_GUID: =%"
+
+if /I "!PLAN_GUID!"=="381b4222-f694-41f0-9685-ff5bb260df2e" (
+    set "PLAN_NAME=Balanced"
+) else if /I "!PLAN_GUID!"=="8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c" (
+    set "PLAN_NAME=High Performance"
+) else if /I "!PLAN_GUID!"=="a1841308-3541-4fab-bc81-f71556f20b4a" (
+    set "PLAN_NAME=Power Saver"
+) else if /I "!PLAN_GUID!"=="e9a42b02-d5df-448d-aa00-03f14749eb61" (
+    set "PLAN_NAME=Ultimate Performance"
+) else (
+    set "PLAN_NAME=Unknown Power Plan"
+)
+
+echo Active Power Plan GUID : !PLAN_GUID!
+echo Active Power Plan Name : !PLAN_NAME!
+
+del "%TMP_FILE%" >nul 2>&1
 call :GO POWER_PLAN_MENU
 
 
 :HW_INFO
 cls & echo. & echo.
-echo                        ---------------------------------- HW Info --------------------------------
+echo                        -------------------------------- HW Info ----------------------------------
 echo.
-echo                          [1] CPU                                                   [2] RAM
+echo                          [1] CPU                                                   [2] GPU
 echo. 
-echo                          [3] Hard Disk                                             [4] GPU
+echo                          [3] Hard Disk                                             [4] RAM
 echo. 
 echo                          [5] Battery                                               [0] Back
 echo.
@@ -457,31 +554,22 @@ echo.
 set /p choice="Select an option: "
 
 if "%choice%"=="1" goto CPU
-if "%choice%"=="2" goto RAM
+if "%choice%"=="2" goto GPU
 if "%choice%"=="3" goto HARD_DISK
-if "%choice%"=="4" goto GPU
+if "%choice%"=="4" goto RAM
 if "%choice%"=="5" goto BATTERY
 if "%choice%"=="0" goto PERFORMANCE_MENU
 
-call :INVALID_INPUT "(0-5)" "HW_INFO"
+echo. & echo [ERROR] Invalid selection. Please choose a valid option between (0-5)
+pause
+goto HW_INFO
 
 :CPU
-cls & echo CPU detailed information
-wmic cpu get name
-
-wmic cpu get numberofcores, numberoflogicalprocessors
-
-wmic cpu get maxclockspeed
-
+cls & powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0Files\Performance\CPU_Info.ps1"
 call :GO HW_INFO
 
-:RAM
-cls & echo Memory usage
-
-wmic OS get TotalVisibleMemorySize, FreePhysicalMemory
-
-wmic memorychip get Capacity, Speed
-
+:GPU
+cls & powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0Files\Performance\GPU_Info.ps1"
 call :GO HW_INFO
 
 :HARD_DISK
@@ -494,17 +582,12 @@ wmic diskdrive get model, size, partitions, interfaceType, status
 
 call :GO HW_INFO
 
-:GPU
-cls & echo GPU Information 
-wmic path win32_videocontroller get name
+:RAM
+cls & echo Memory usage
 
-wmic path win32_videocontroller get adapterram
+wmic OS get TotalVisibleMemorySize, FreePhysicalMemory
 
-wmic path win32_videocontroller get driverversion
-
-powershell -NoProfile -ExecutionPolicy Bypass -Command "Add-Type -AssemblyName System.Windows.Forms; $i=1; foreach ($s in [System.Windows.Forms.Screen]::AllScreens) { $size=$s.Bounds.Size; Write-Host ('Screen ' + $i + ': ' + $size.Width + 'x' + $size.Height + ' | Primary: ' + $s.Primary); $i++ }"
-
-wmic desktopmonitor get name, status
+wmic memorychip get Capacity, Speed
 
 call :GO HW_INFO
 
@@ -524,7 +607,7 @@ echo                          [3] Windows Updates                               
 echo.
 echo                          [5] Enhance Security                              [6] Security Information
 echo.
-echo                                                             [0] Back
+echo                                                         [0] Back
 echo.
 echo                        ---------------------------------------------------------------------------
 
@@ -558,8 +641,9 @@ if "%choice%"=="5" (
 if "%choice%"=="6" goto SECURITY_INFO
 if "%choice%"=="0" goto MENU
 
-call :INVALID_INPUT "(0-6)" "PRIVACY_SECURITY_MENU"
-
+echo. & echo [ERROR] Invalid selection. Please choose a valid option between (0-6)
+pause
+goto PRIVACY_SECURITY_MENU
 
 :DISABLE_TELEMETRY
 cls
@@ -586,8 +670,8 @@ for %%S in (
     )
 )
 
-echo Disable telemetry scheduled tasks...
-for /f "tokens=*" %%i in ("%~dp0Files\Telemetry\Scheduled_tasks_telemetry.txt") do (
+echo Disable telemetry scheduled tasks
+for /f "tokens=*" %%i in ("%~dp0Files\Security\Scheduled_tasks_telemetry.txt") do (
     set "TASK_NAME=%%i"
     set "TASK_RESULT=SUCCESS"
     
@@ -605,86 +689,29 @@ for /f "tokens=*" %%i in ("%~dp0Files\Telemetry\Scheduled_tasks_telemetry.txt") 
 )
 
 echo Disable telemetry from registry
-reg import "%~dp0Files\Telemetry\Disable_Telemetry.reg" >> "%LogFile%" 2>&1
+reg import "%~dp0Files\Security\Disable_Telemetry.reg" >> "%LogFile%" 2>&1
 
 echo Disable Powershell 7 Telemetry
 powershell -Command "[Environment]::SetEnvironmentVariable('POWERSHELL_TELEMETRY_OPTOUT', '1', 'Machine')"
 
 echo Block Domains in hosts file
 set "hostsPath=%SystemRoot%\System32\drivers\etc\hosts"
-findstr /i /c:"# Microsoft Telemetry Block" "%hostsPath%" >nul || (
+
+findstr /i /c:"# Tracking and trash Domains" "%hostsPath%" >nul || (
     echo.>>"%hostsPath%"
-    echo # Microsoft Telemetry Block>>"%hostsPath%"
+    echo # Tracking and trash Domains>>"%hostsPath%"
 )
 
-for %%d in (
-    oca.telemetry.microsoft.com
-    oca.microsoft.com
-    telemetry.microsoft.com
-    telemetry.urs.microsoft.com
-    telemetry.microsoft.com.nsatc.net
-    oca.telemetry.microsoft.com.nsatc.net
-    sqm.telemetry.microsoft.com
-    sqm.ppe.telemetry.microsoft.com
-    telemetry.remoteapp.microsoft.com
-    watson.telemetry.microsoft.com
-    watson.events.data.microsoft.com
-    watson.live.com
-    watson.microsoft.com
-    watson.ppe.telemetry.microsoft.com
-    modern.watson.data.microsoft.com
-    watsonc.events.data.microsoft.com
-    umwatsonc.events.data.microsoft.com
-    umwatson.events.data.microsoft.com
-    eu-watsonc.events.data.microsoft.com
-    kmwatsonc.events.data.microsoft.com   
-    data.microsoft.com
-    events.data.microsoft.com
-    vortex.data.microsoft.com
-    vortex-win.data.microsoft.com
-    functional.events.data.microsoft.com
-    v10.vortex-win.data.microsoft.com
-    v10.events.data.microsoft.com
-    v10c.events.data.microsoft.com
-    us-v10c.events.data.microsoft.com
-    eu-v10c.events.data.microsoft.com
-    settings-win.data.microsoft.com   
-    co4.telecommand.telemetry.microsoft.com
-    www.telecommandsvc.microsoft.com   
-    statsfe1.ws.microsoft.com
-    statsfe2.ws.microsoft.com
-    statsfe2.update.microsoft.com.akadns.net
-    statsfe2.update.microsoft.com
-    sls.update.microsoft.com.akadns.net
-    fe2.update.microsoft.com.akadns.net  
-    diagnostics.support.microsoft.com
-    corp.sts.microsoft.com
-    corpext.msitadfs.glbdns2.microsoft.com
-    compatexchange.cloudapp.net
-    telemetry.appex.bing.net
-    cs1.wpc.v0cdn.net
-    a-0001.a-msedge.net
-    pre.footprintpredict.com    
-    i1.services.social.microsoft.com
-    i1.services.social.microsoft.com.nsatc.net  
-    feedback.windows.com
-    feedback.microsoft-hohm.com
-    feedback.search.microsoft.com 
-    rad.msn.com
-    preview.msn.com
-    ad.doubleclick.net
-    ads.msn.com
-    ads1.msads.net
-    a.ads1.msn.com
-    a.ads2.msn.com
-    adnexus.net
-    adnxs.com
-) do (
-    findstr /i /c:"%%d" "%hostsPath%" >nul || echo 0.0.0.0 %%d>>"%hostsPath%"
+for /f "usebackq delims=" %%l in ("%~dp0Files\Security\Tracking_Domins.txt") do (
+    if not "%%l"=="" (
+        findstr /i /c:"%%l" "%hostsPath%" >nul || (
+            echo %%l>>"%hostsPath%"
+        )
+    )
 )
 
+ipconfig /flushdns >nul
 call :GO PRIVACY_SECURITY_MENU
-
 
 :PRIVACY_CLEANUP
 cls & 	echo Cleaning Temp
@@ -721,7 +748,7 @@ for %%L in (Application Security System Setup) do (
 )
 
 echo Cleaning registry entries
-reg import "%~dp0Files\Privacy_Cleanup\privacy_cleanup.reg" >> "%LogFile%" 2>&1
+reg import "%~dp0Files\Security\privacy_cleanup.reg" >> "%LogFile%" 2>&1
 
 set "BROWSERS=chrome.exe brave.exe msedge.exe firefox.exe"
 set BROWSERS_OPEN=0
@@ -736,16 +763,16 @@ for %%B in (%BROWSERS%) do (
 if !BROWSERS_OPEN! equ 1 (
     set /p CLOSE_BROWSERS="Browsers are currently open. Do you want to close them? (y/n): "
     if /i "!CLOSE_BROWSERS!"=="y" (
-        echo Closing browsers...
+        echo Closing browsers
         for %%B in (%BROWSERS%) do (
             taskkill /IM "%%B" /F /T >nul 2>&1
         )
         timeout /t 2 >nul
     ) else (
-        echo Skipping files currently used by browsers.
+        echo Skipping files currently used by browsers
     )
 ) else (
-    echo No browsers are currently running.
+    echo No browsers are currently running
 )
 
 if exist "%LOCALAPPDATA%\Google\Chrome\User Data" (
@@ -832,26 +859,9 @@ for %%S in (
         echo [NOT FOUND] %%S>>"%LogFile%" 2>&1
     )
 )
-echo Disabling Scheduled Update Tasks
-for /f "tokens=*" %%i in ("%~dp0Files\Windows_Update\Scheduler_Update.txt") do (
-    set "TASK_NAME=%%i"
-    set "TASK_RESULT=SUCCESS"
-    
-    schtasks /change /tn "%%i" /disable >nul 2>&1
-    if errorlevel 1 (
-        schtasks /query /tn "%%i" >nul 2>&1
-        if errorlevel 1 (
-            set "TASK_RESULT=NOT_FOUND"
-        ) else (
-            set "TASK_RESULT=FAILED"
-        )
-    )
-    
-    echo !TASK_NAME!: !TASK_RESULT! >> "%LogFile%" 2>&1
-)
 
 echo Disable windows update from registry
-reg import "%~dp0Files\Windows_Update\Disable_Update.reg" >> "%LogFile%" 2>&1
+reg import "%~dp0Files\Security\Disable_Update.reg" >> "%LogFile%" 2>&1
 
 call :GO PRIVACY_SECURITY_MENU
 
@@ -880,26 +890,8 @@ for %%S in (
     )
 )
 
-echo Enabling Scheduled Update Tasks
-for /f "tokens=*" %%i in ("%~dp0Files\Windows_Update\Scheduler_Update.txt") do (
-    set "TASK_NAME=%%i"
-    set "TASK_RESULT=SUCCESS"
-    
-    schtasks /change /tn "%%i" /enable >nul 2>&1
-    if errorlevel 1 (
-        schtasks /query /tn "%%i" >nul 2>&1
-        if errorlevel 1 (
-            set "TASK_RESULT=NOT_FOUND"
-        ) else (
-            set "TASK_RESULT=FAILED"
-        )
-    )
-    
-    echo !TASK_NAME!: !TASK_RESULT! >> "%LogFile%" 2>&1
-)
-
 echo Restoring Original Update Registry
-reg import "%~dp0Files\Windows_Update\Enable_Update.reg" >> "%LogFile%" 2>&1
+reg import "%~dp0Files\Security\Enable_Update.reg" >> "%LogFile%" 2>&1
 
 call :GO PRIVACY_SECURITY_MENU
 
@@ -918,31 +910,12 @@ for %%S in (WinDefend WdNisSvc SecurityHealthService Sense SgrmAgent SgrmBroker 
     )
 ) || (echo [NOT FOUND] %%S>>"%LogFile%" 2>&1)
 
-echo Disable Defender scheduled tasks
-for /f "tokens=*" %%i in ("%~dp0Files\Windows_Defender\Def_Task.txt") do (
-    set "TASK_NAME=%%i"
-    set "TASK_RESULT=SUCCESS"
-    
-    schtasks /change /tn "%%i" /disable >nul 2>&1
-    if errorlevel 1 (
-        schtasks /query /tn "%%i" >nul 2>&1
-        if errorlevel 1 (
-            set "TASK_RESULT=NOT_FOUND"
-        ) else (
-            set "TASK_RESULT=FAILED"
-        )
-    )
-    
-    echo !TASK_NAME!: !TASK_RESULT! >> "%LogFile%" 2>&1
-)
-
 echo Applying registry modifications
-reg import "%~dp0Files\Windows_Defender\Disable_Def.reg" >> "%LogFile%" 2>&1
+reg import "%~dp0Files\Security\Disable_Def.reg" >> "%LogFile%" 2>&1
 
 echo. & echo System restart is required for all changes to take effect.
 call :GO PRIVACY_SECURITY_MENU
 
-:: Restore defender
 :ENABLE_DEFENDER
 cls
 call :PATH "Windows Defender" "Enabled"
@@ -955,27 +928,8 @@ for %%S in (WinDefend WdNisSvc SecurityHealthService Sense SgrmAgent SgrmBroker 
     sc start "%%S" >nul 2>&1 && (echo [SUCCESS] %%S>>"%LogFile%" 2>&1) || (echo [WARNING] Failed to start %%S>>"%LogFile%" 2>&1)
 ) || (echo [NOT FOUND] %%S>>"%LogFile%" 2>&1)
 
-
-echo Enable Windows Defender services Scheduler Task
-for /f "tokens=*" %%i in ("%~dp0Files\Windows_Defender\Def_Task.txt") do (
-    set "TASK_NAME=%%i"
-    set "TASK_RESULT=SUCCESS"
-    
-    schtasks /change /tn "%%i" /enable >nul 2>&1
-    if errorlevel 1 (
-        schtasks /query /tn "%%i" >nul 2>&1
-        if errorlevel 1 (
-            set "TASK_RESULT=NOT_FOUND"
-        ) else (
-            set "TASK_RESULT=FAILED"
-        )
-    )
-    
-    echo !TASK_NAME!: !TASK_RESULT! >> "%LogFile%" 2>&1
-)
-
 echo Restoring default registry settings
-reg import "%~dp0Files\Windows_Defender\Enable_Def.reg" >> "%LogFile%" 2>&1
+reg import "%~dp0Files\Security\Enable_Def.reg" >> "%LogFile%" 2>&1
 
 echo Enable Tamper Protection via PowerShell
 powershell -Command "Set-MpPreference -DisableTamperProtection 0" >nul 2>&1
@@ -986,7 +940,6 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command "Try { Update-MpSignature
 
 echo. & echo Restart your computer to ensure all services and policies apply correctly 
 echo Check Windows Security app to confirm real-time protection is ON
-
 call :GO PRIVACY_SECURITY_MENU
 
 :ENHANCE_SECURITY
@@ -994,7 +947,7 @@ cls & echo Applying security hardening settings
 call :PATH "Enhance_Security" "Enhance"
 
 echo configure registry settings
-reg import "%~dp0Files\Enhance_Security\Enhance.reg" >> "%LogFile%" 2>&1
+reg import "%~dp0Files\Security\Enhance_Security.reg" >> "%LogFile%" 2>&1
 
 echo Disabling vulnerable Windows features
 for %%f in ("MicrosoftWindowsPowerShellV2" "MicrosoftWindowsPowerShellV2Root" "SMB1Protocol" "SmbDirect" "TFTP" "TelnetClient" "WCF-TCP-PortSharing45") do (
@@ -1030,20 +983,13 @@ call :GO PRIVACY_SECURITY_MENU
 cls & echo Restoring default security settings
 call :PATH "Enhance_Security" "Rev_Enhance"
 
-reg import "%~dp0Files\Enhance_Security\Rev_Enhance.reg" >> "%LogFile%" 2>&1
+reg import "%~dp0Files\Security\Rev_Enhance_Security.reg" >> "%LogFile%" 2>&1
 
 echo Restoration completed
 call :GO PRIVACY_SECURITY_MENU
 
-
 :SECURITY_INFO
-cls
-echo.
-echo                        ============================================================
-echo                                             SECURITY INFORMATION 
-echo                        ============================================================
-
-echo. & echo TCP Ports and owning processes:
+cls & echo TCP Ports and owning processes:
 powershell -Command "Get-NetTCPConnection -State Listen | Select-Object LocalPort, OwningProcess -Unique | ForEach-Object { $p = (Get-Process -Id $_.OwningProcess -ErrorAction SilentlyContinue).ProcessName; 'TCP Port: ' + $_.LocalPort + ' | Process: ' + $p }"
 
 echo. & echo UDP Ports and owning processes:
@@ -1092,28 +1038,106 @@ call :GO PRIVACY_SECURITY_MENU
 
 :NETWORK_MENU
 cls & echo. & echo.
-echo                        -------------------------------- Network ----------------------------------
+echo                        --------------------------------- Network ---------------------------------
 echo.
-echo                          [1] Reset Network                                 [2] Wi-Fi Passwords
+echo                          [1] Improve Network                                [2] Reset Network
 echo.
-echo                          [3] Network Info                                  [0] Back
+echo                          [3] Wi-Fi Passwords                                [4] Change DNS                        
+echo.
+echo                          [5] Network Info                                   [0] Back
 echo.
 echo                        ---------------------------------------------------------------------------
 
 echo. & set /p choice="Select an option: "
-if "%choice%"=="1" goto NETWORK_RESET
-if "%choice%"=="2" goto WIFI_PASSWORDS
-if "%choice%"=="3" goto NETWORK_INFO
+if "%choice%"=="1" (
+    set Routine=IMPROVE_NET
+    set Rev_Routine=REV_IMPROVE_NET
+    set Apply=Improve Network seeting
+	set Revert=Default Network seeting
+    set menu=NETWORK_MENU
+    goto SUB_MENU
+)
+if "%choice%"=="2" goto NETWORK_RESET
+if "%choice%"=="3" goto WIFI_PASSWORDS
+if "%choice%"=="4" goto DNS_MENU
+if "%choice%"=="5" goto NETWORK_INFO
 if "%choice%"=="0" goto MENU
 
-call :INVALID_INPUT "(0-3)" "NETWORK_MENU"
+echo. & echo [ERROR] Invalid selection. Please choose a valid option between (0-5)
+pause
+goto NETWORK_MENU
+
+:IMPROVE_NET
+cls & echo Enable WlanSvc service
+sc config WlanSvc start= auto >nul 2>&1
+sc start WlanSvc >nul 2>&1
+
+echo Importing network improve registry file
+reg import "%~dp0Files\Network\Improve_net.reg" >nul
+
+echo Applying TCP/IP optimizations
+netsh int tcp set global autotuninglevel=normal >nul 2>&1
+netsh int tcp set global chimney=disabled >nul 2>&1
+netsh int tcp set global ecncapability=disabled >nul 2>&1
+netsh int tcp set global fastopen=enabled >nul 2>&1
+netsh int tcp set global fastopenfallback=enabled >nul 2>&1
+netsh int tcp set global rss=enabled >nul 2>&1
+netsh int tcp set global timestamps=disabled >nul 2>&1
+
+echo Setting DNS on all connected dedicated interfaces
+for /f "tokens=3,*" %%a in ('netsh interface show interface ^| findstr "Connected"') do (
+    echo Setting: %%b    
+    netsh interface ipv4 set dns name="%%b" static 1.1.1.1 primary >nul
+    netsh interface ipv4 add dns name="%%b" 1.0.0.1 index=2 >nul
+	
+    netsh interface ipv6 set dns name="%%b" static 2606:4700:4700::1111 primary >nul
+    netsh interface ipv6 add dns name="%%b" 2606:4700:4700::1001 index=2 >nul
+)
+
+echo Flushing DNS cache and resetting Winsock
+ipconfig /flushdns >nul 2>&1
+netsh winsock reset >nul 2>&1
+call :GO NETWORK_MENU
+
+:REV_IMPROVE_NET
+cls & echo Enable WlanSvc service
+sc config WlanSvc start= auto >nul 2>&1
+sc start WlanSvc >nul 2>&1
+
+echo Importing default network settings registry file
+reg import "%~dp0Files\Network\Rev_Improve_net.reg" >nul
+
+echo Restoring TCP/IP defaults
+netsh int tcp set global autotuninglevel=normal >nul 2>&1
+netsh int tcp set global chimney=default >nul 2>&1
+netsh int tcp set global ecncapability=default >nul 2>&1
+netsh int tcp set global fastopen=default >nul 2>&1
+netsh int tcp set global fastopenfallback=default >nul 2>&1
+netsh int tcp set global rss=default >nul 2>&1
+netsh int tcp set global timestamps=default >nul 2>&1
+
+echo Restoring DNS (IPv4 / IPv6) to Automatic
+for /f "tokens=3,*" %%a in ('netsh interface show interface ^| findstr "Connected"') do (
+    echo - Resetting DNS on: %%b
+    netsh interface ipv4 set source=dns name="%%b" dhcp >nul
+    netsh interface ipv6 set source=dns name="%%b" dhcp >nul
+)
+
+echo Resetting Winsock and flushing DNS
+netsh winsock reset >nul 2>&1
+ipconfig /flushdns >nul 2>&1
+call :GO NETWORK_MENU
 
 :NETWORK_RESET
-cls & echo Restoring Network Components to Default State
-
+cls
 call :PATH "Network" "Network Reset"
 
-echo. & echo Releasing IP addresses
+echo Restart WlanSvc service
+sc stop WlanSvc >> "%LogFile%" 2>&1
+sc config WlanSvc start= auto >> "%LogFile%" 2>&1
+sc start WlanSvc >> "%LogFile%" 2>&1
+
+echo Releasing IP addresses
 ipconfig /release >> "%LogFile%" 2>&1
 
 echo Flushing DNS resolver cache
@@ -1125,8 +1149,10 @@ arp -d * >> "%LogFile%" 2>&1
 echo Resetting Winsock catalog
 netsh winsock reset >> "%LogFile%" 2>&1
 
-echo Resetting TCP/IP stack
+echo Resetting TCP/UDP/IP stack
 netsh int ip reset >> "%LogFile%" 2>&1
+netsh int tcp reset >> "%LogFile%" 2>&1
+netsh int udp reset >> "%LogFile%" 2>&1
 
 echo Reloading the NetBIOS name cache
 nbtstat -R >> "%LogFile%" 2>&1
@@ -1134,16 +1160,12 @@ nbtstat -R >> "%LogFile%" 2>&1
 echo Sending NetBIOS name update
 nbtstat -RR >> "%LogFile%" 2>&1
 
-echo Disabling and re-enabling network adapters
-for /f "skip=3 tokens=4*" %%A in ('netsh interface show interface ^| findstr /R /C:"Connected" /C:"Disconnected"') do (
-    set "adapter=%%B"
-    if defined adapter (
-        echo    - Resetting !adapter! 
-        netsh interface set interface name="!adapter!" admin=disable >> "%LogFile%" 2>&1
-        timeout /t 2 >nul
-        netsh interface set interface name="!adapter!" admin=enable >> "%LogFile%" 2>&1
-        timeout /t 2 >nul
-    )
+echo Restart network adapters
+for /f "tokens=3,*" %%a in ('netsh interface show interface ^| findstr "Connected"') do (
+    echo - Processing adapter: %%b
+    netsh interface set interface name="%%b" admin=disabled >nul 2>&1
+    timeout /t 2 >nul
+    netsh interface set interface name="%%b" admin=enabled >nul 2>&1
 )
 
 echo Renewing IP addresses
@@ -1155,71 +1177,123 @@ ipconfig /registerdns >> "%LogFile%" 2>&1
 echo. & echo Restart your computer for all changes to take effect.
 call :GO NETWORK_MENU
 
-
 :WIFI_PASSWORDS
 cls & echo Showing Saved Networks and Passwords
 powershell -NoProfile -ExecutionPolicy Bypass -Command "try { $raw = netsh wlan show profiles 2>$null; if (-not $raw) { Write-Host 'No Wi-Fi profiles found or netsh failed.'; exit 0 }; $profiles = $raw | Where-Object { $_ -match ':' -and $_ -match '(?i)All User Profile|All User Profiles|All Users Profile|Profile|Perfil|Profil' } | ForEach-Object { ($_ -split ':',2)[1].Trim() } | Where-Object { $_ -ne '' }; if (-not $profiles) { Write-Host 'No Wi-Fi profiles found.'; exit 0 }; foreach ($p in $profiles) { try { $info = netsh wlan show profile name=\"$p\" key=clear 2>$null } catch { $info = @() }; $keyPatterns = @('Key Content','Contenido de la clave','Contenu de la clé','Schlüsselinhalt','Contenuto chiave','Clave'); $pwd = 'N/A'; foreach ($pat in $keyPatterns) { $m = $info | Select-String -SimpleMatch $pat; if ($m) { $pwd = ($m.Line -split ':',2)[1].Trim(); break } }; if ($pwd -eq 'N/A') { $m = $info | Where-Object { $_ -match ':\s*\S+' -and ($_.Split(':')[0] -match '(?i)key|clave|clé|schlüssel') } | Select-Object -First 1; if ($m) { $pwd = ($m -split ':',2)[1].Trim() } }; Write-Host \"---------------------------------------`nSSID: $p`nPassword: $pwd`n---------------------------------------\" } } catch { Write-Error \"Unexpected error: $_\" }"
 call :GO NETWORK_MENU
 
+:DNS_MENU
+cls & echo. & echo.
+echo                        ------------------------------- DNS Server --------------------------------
+echo.
+echo                          [1] Google Public                                    [2] Cloudflare
+echo.
+echo                          [3] Cloudflare Family                                [4] AdGuard DNS                       
+echo.
+echo                          [5] Clean Browsing                                   [6] Quad9
+echo.
+echo                          [7] OpenDNS                                          [8] DNS status
+echo.
+echo                          [9] Default Setting                                  [0] Back
+echo.
+echo                        ---------------------------------------------------------------------------
+
+echo. & set /p choice="Select an option: "
+if "%choice%"=="1" (
+    set DNS_IPv4_1=8.8.8.8
+    set DNS_IPv4_2=8.8.4.4
+    set DNS_IPv6_1=2001:4860:4860::8888
+    set DNS_IPv6_2=2001:4860:4860::8844
+    goto SET_DNS
+)
+if "%choice%"=="2" (
+    set DNS_IPv4_1=1.1.1.1
+    set DNS_IPv4_2=1.0.0.1
+    set DNS_IPv6_1=2606:4700:4700::1111
+    set DNS_IPv6_2=2606:4700:4700::1001
+    goto SET_DNS
+)
+if "%choice%"=="3" (
+    set DNS_IPv4_1=1.1.1.3
+    set DNS_IPv4_2=1.0.0.3
+    set DNS_IPv6_1=2606:4700:4700::1113
+    set DNS_IPv6_2=2606:4700:4700::1003
+    goto SET_DNS
+)
+if "%choice%"=="4" (
+    set DNS_IPv4_1=94.140.14.15
+    set DNS_IPv4_2=94.140.15.16
+    set DNS_IPv6_1=2a10:50c0::bad:ff
+    set DNS_IPv6_2=2a10:50c0::b0d:ff
+    goto SET_DNS
+)
+if "%choice%"=="5" (
+    set DNS_IPv4_1=185.228.168.168
+    set DNS_IPv4_2=185.228.169.168
+    set DNS_IPv6_1=2a0d:2a00:1::
+    set DNS_IPv6_2=2a0d:2a00:2::
+    goto SET_DNS
+)
+if "%choice%"=="6" (
+    set DNS_IPv4_1=9.9.9.9
+    set DNS_IPv4_2=149.112.112.112
+    set DNS_IPv6_1=2620:fe::fe
+    set DNS_IPv6_2=2620:fe::9
+    goto SET_DNS
+)
+if "%choice%"=="7" (
+    set DNS_IPv4_1=208.67.222.222
+    set DNS_IPv4_2=208.67.220.220
+    set DNS_IPv6_1=2620:119:35::35
+    set DNS_IPv6_2=2620:119:53::53
+    goto SET_DNS
+)
+if "%choice%"=="8" goto DNS_STATUS
+if "%choice%"=="9" goto DHCP
+if "%choice%"=="0" goto NETWORK_MENU
+
+echo. & echo [ERROR] Invalid selection. Please choose a valid option between (0-9)
+pause
+goto DNS_MENU
+
+:SET_DNS
+for /f "tokens=3,*" %%a in ('netsh interface show interface ^| findstr "Connected"') do (
+    echo  - Setting: %%b
+    netsh interface ipv4 set dns name="%%b" static %DNS_IPv4_1% primary >nul
+    netsh interface ipv4 add dns name="%%b" %DNS_IPv4_2% index=2 >nul
+    
+    netsh interface ipv6 set dns name="%%b" static %DNS_IPv6_1% primary >nul
+    netsh interface ipv6 add dns name="%%b" %DNS_IPv6_2% index=2 >nul
+)
+
+echo Flushing DNS cache
+ipconfig /flushdns >nul
+call :GO DNS_MENU
+
+:DNS_STATUS
+cls & powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0Files\Network\Dns_Status.ps1"
+call :GO DNS_MENU
+
+:DHCP
+echo Restoring DNS (IPv4 / IPv6) to Automatic
+for /f "tokens=3,*" %%a in ('netsh interface show interface ^| findstr "Connected"') do (
+    echo - Resetting DNS on: %%b
+    netsh interface ipv4 set source=dns name="%%b" dhcp >nul
+    netsh interface ipv6 set source=dns name="%%b" dhcp >nul
+)
+
+echo Flushing DNS cache
+ipconfig /flushdns >nul
+call :GO DNS_MENU
+
 :NETWORK_INFO
-cls
-echo                        ============================================================
-echo                                            NETWORK INFORMATION
-echo                        ============================================================
-
-echo. & echo Device name on the network:
-hostname
-
-echo. & echo Internet Connectivity:
-powershell -Command "if (Test-Connection 8.8.8.8 -Count 1 -Quiet) { Write-Host 'Connected' } else { Write-Host 'Disconnected' }"
-
-echo. & echo DNS Resolution Test:
-powershell -Command "if (Resolve-DnsName google.com -ErrorAction SilentlyContinue) { Write-Host 'Working' } else { Write-Host 'Failed' }"
-
-echo. & echo DNS Servers currently in use:
-powershell -Command "(Get-DnsClientServerAddress -AddressFamily IPv4).ServerAddresses"
-
-echo. & echo Default Gateway Address:
-powershell -Command "(Get-NetRoute -DestinationPrefix '0.0.0.0/0').NextHop"
-
-echo. & echo Active Network Adapter:
-powershell -Command "Get-CimInstance Win32_NetworkAdapter | Where-Object { $_.NetConnectionStatus -eq 2 } | ForEach-Object { $type = if ($_.Name -match 'Wireless|Wi[- ]?Fi') { 'Wi-Fi' } else { 'Ethernet' }; Write-Host ('Name: ' + $_.Name + ' | Type: ' + $type + ' | Speed: ' + [math]::Round($_.Speed / 1MB) + ' Mbps | MAC: ' + $_.MACAddress) }"
-
-echo. & echo Local IP Address (LAN):
-powershell -Command "(Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -notmatch '^169' }).IPAddress"
-
-echo. & echo Public IP Address (WAN):
-powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; (Invoke-RestMethod 'https://api.ipify.org?format=json').ip"
-
-echo. & echo Proxy Status:
-powershell -Command "$proxy = netsh winhttp show proxy; if ($proxy -match 'Direct access') { Write-Host 'No proxy configured' } else { Write-Host $proxy }"
-
-echo. & echo IPv6 Status:
-powershell -Command "if (Get-NetIPAddress -AddressFamily IPv6 -ErrorAction SilentlyContinue | Where-Object {$_.IPAddress -notlike 'fe80*'}) { Write-Host 'Active' } else { Write-Host 'Inactive' }"
-
-echo. & echo Firewall status:
-powershell -Command "Get-NetFirewallProfile | ForEach-Object { $status = if ($_.Enabled) { 'ENABLED' } else { 'DISABLED' }; Write-Host ($_.Name + ': ' + $status) }"
-
-echo. & echo Wi-Fi signal strength:
-powershell -Command "$s=(netsh wlan show interfaces|Select-String 'Signal\s*:\s*(\d+)%'|Select-Object -First 1);if($s){$s.Matches.Groups[1].Value+'%'}else{'0%'}"
-
-echo. & echo Saved Wi-Fi Profiles:
-powershell -Command "$profiles = (netsh wlan show profiles) | Select-String 'All User Profile' | ForEach-Object { ($_ -split ':')[1].Trim() } | Sort-Object; foreach ($ssid in $profiles) { $event = Get-WinEvent -LogName 'Microsoft-Windows-WLAN-AutoConfig/Operational' | Where-Object { $_.Id -eq 8001 -and $_.Message -like ('*' + $ssid + '*') } | Select-Object -First 1 TimeCreated; if ($event) { Write-Host ('SSID: ' + $ssid + ' | Last Connected: ' + $event.TimeCreated) } else { Write-Host ('SSID: ' + $ssid + ' | Last Connected: Not Found') } }"
-
-echo. & echo Current Network Connection:
-powershell -Command "$net = Get-NetConnectionProfile; Write-Host ('Name: ' + $net.Name + ' | Type: ' + $net.NetworkCategory + ' | Connected via: ' + $net.InterfaceAlias)"
-
-echo. & echo TCP Ports and owning processes:
-powershell -Command "Get-NetTCPConnection -State Listen | Select-Object LocalPort, OwningProcess -Unique | ForEach-Object { $p = (Get-Process -Id $_.OwningProcess -ErrorAction SilentlyContinue).ProcessName; 'TCP Port: ' + $_.LocalPort + ' | Process: ' + $p }"
-
-echo. & echo UDP Ports and owning processes:
-powershell -Command "Get-NetUDPEndpoint | Select-Object LocalPort, OwningProcess -Unique | ForEach-Object { $p = (Get-Process -Id $_.OwningProcess -ErrorAction SilentlyContinue).ProcessName; 'UDP Port: ' + $_.LocalPort + ' | Process: ' + $p }"
+cls & powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0Files\Network\Network_Info.ps1"
 call :GO NETWORK_MENU
 
 
 :PROGRAMS_MENU
 cls & echo. & echo.
-echo                        ---------------------------- Program manager ------------------------------
+echo                        ------------------------------ Program manager ----------------------------
 echo.
 echo                         [1] Download Programs                                 [2] Update Programs
 echo.
@@ -1233,7 +1307,9 @@ if "%choice%"=="2" goto UPDATE_PROGRAMS
 if "%choice%"=="3" goto PROGRAM_INFO
 if "%choice%"=="0" goto MENU
 
-call :INVALID_INPUT "(0-3)" "MENU"
+echo. & echo [ERROR] Invalid selection. Please choose a valid option between (0-3)
+pause
+goto PROGRAMS_MENU
 
 :DOWNLOAD_PROGRAMS
 where choco >nul 2>&1
@@ -1266,19 +1342,19 @@ cls
 echo.
 echo                        ------------------------------- Programs ---------------------------------
 echo.
-echo                             [1] Google Chrome                             [7] Sumatra PDF
+echo                             [1] Google Chrome                             [7] XnViewMP
 echo.
 echo                             [2] Brave Browser                             [8] Notepad++
 echo.
 echo                             [3] WinRAR                                    [9] Visual Studio Code
 echo.
-echo                             [4] XnView MP                                 [10] IrfanView
+echo                             [4]  7-Zip                                   [10] Sumatra PDF
 echo. 
-echo                             [5] K-Lite Codec                              [11] 7-Zip
+echo                             [5] K-Lite Codec                             [11] qbittorrent
 echo.
-echo                             [6] qbittorrent                               [12] Virtual Box
+echo                             [6]  IrfanView                               [12] Virtual Box
 echo.
-echo                                                       [0] Back
+echo                                                        [0] Back
 echo.
 echo                        ---------------------------------------------------------------------------
 
@@ -1302,8 +1378,7 @@ for %%G in (%tokens%) do (
 goto PROGRAMS_MENU_LOOP
 
 :INSTALL_PROGRAMS
-cls & echo Starting installation...
-
+cls
 call :IsOn opt1 && (
     echo Installing Google Chrome...
     choco install googlechrome -y
@@ -1317,20 +1392,20 @@ call :IsOn opt3 && (
     choco install winrar -y 
 )
 call :IsOn opt4 && (
-    echo Installing XnView MP...
-    choco install xnviewmp -y
+    echo Installing 7-Zip...
+    choco install 7zip -y  
 )
 call :IsOn opt5 && (
     echo Installing K-Lite Codec Pack Mega...
     choco install k-litecodecpackmega -y
 )
 call :IsOn opt6 && (
-    echo Installing qbittorrent...
-    choco install qbittorrent -y
+    echo Installing IrfanView...
+    choco install irfanview -y
 )
 call :IsOn opt7 && (
-    echo Installing Sumatra PDF...
-    choco install sumatrapdf -y
+    echo Installing XnView MP...
+    choco install xnviewmp -y
 )
 call :IsOn opt8 && (
     echo Installing Notepad++...
@@ -1341,18 +1416,17 @@ call :IsOn opt9 && (
     choco install vscode -y
 )
 call :IsOn opt10 && (
-    echo Installing IrfanView...
-    choco install irfanview -y
+    echo Installing Sumatra PDF...
+    choco install sumatrapdf -y
 )
 call :IsOn opt11 && (
-    echo Installing 7-Zip...
-    choco install 7zip -y  
+    echo Installing qbittorrent...
+    choco install qbittorrent -y
 )
 call :IsOn opt12 && (
     echo Installing Virtual Box...
     choco install virtualbox -y
 )
-
 call :GO PROGRAMS_MENU_LOOP
 
 :IsOn
@@ -1372,18 +1446,17 @@ set "any=0"
 if "!opt1!"=="%on%"  (echo   - Google Chrome & set "any=1")
 if "!opt2!"=="%on%"  (echo   - Brave Browser & set "any=1")
 if "!opt3!"=="%on%"  (echo   - WinRAR & set "any=1")
-if "!opt4!"=="%on%"  (echo   - XnView MP & set "any=1")
+if "!opt4!"=="%on%" (echo   - 7-Zip & set "any=1")
 if "!opt5!"=="%on%"  (echo   - K-Lite Codec Pack Mega & set "any=1")
-if "!opt6!"=="%on%"  (echo   - qbittorrent & set "any=1")
-if "!opt7!"=="%on%"  (echo   - Sumatra PDF & set "any=1")
+if "!opt6!"=="%on%" (echo   - IrfanView & set "any=1")
+if "!opt7!"=="%on%"  (echo   - XnView MP & set "any=1")
 if "!opt8!"=="%on%"  (echo   - Notepad++ & set "any=1")
 if "!opt9!"=="%on%"  (echo   - Visual Studio Code & set "any=1")
-if "!opt10!"=="%on%" (echo   - IrfanView & set "any=1")
-if "!opt11!"=="%on%" (echo   - 7-Zip & set "any=1")
+if "!opt10!"=="%on%"  (echo   - Sumatra PDF & set "any=1")
+if "!opt11!"=="%on%"  (echo   - qbittorrent & set "any=1")
 if "!opt12!"=="%on%" (echo   - Virtual Box & set "any=1")
 if "!any!"=="0" echo   No programs selected
 goto :eof
-
 
 :UPDATE_PROGRAMS
 cls & echo Upgrading All Installed Packages
@@ -1395,24 +1468,17 @@ where choco >nul 2>&1 || (
 choco upgrade all -y
 call :GO PROGRAMS_MENU
 
-
 :PROGRAM_INFO
-cls
-echo                        ============================================================
-echo                                             PROGRAM INFORMATION
-echo                        ============================================================
-
-echo. & echo Startup Programs:
+cls & echo Startup Programs
 powershell -NoLogo -NoProfile -Command "Get-CimInstance Win32_StartupCommand | Select-Object Name,Command,Location | Format-Table -AutoSize"
 
-echo. & echo All Installed Programs:
+echo. & echo All Installed Programs
 powershell -NoLogo -NoProfile -Command "$paths = @('HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*','HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*','HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*'); Get-ItemProperty $paths | Where-Object { $_.DisplayName -and $_.DisplayName -ne '' } | Select-Object DisplayName,Publisher,@{Name='InstallDate';Expression={if($_.InstallDate){'{0:dd/MM/yyyy}' -f ([datetime]::ParseExact($_.InstallDate.ToString(),'yyyyMMdd',$null))}}} | Sort-Object DisplayName | Format-Table -AutoSize"
 call :GO PROGRAMS_MENU
 
-
 :CUSTOMIZATION_MENU
 cls & echo. & echo. 
-echo                        ----------------------------- Customization -------------------------------
+echo                        ------------------------------ Customization ------------------------------
 echo.
 echo                          [1] File Explorer                                    [2] Dark Mode
 echo.
@@ -1420,7 +1486,9 @@ echo                          [3] Power seeting                                 
 echo.
 echo                          [5] Classic Photo Viewer                             [6] Trash options 
 echo.
-echo                          [7] Context menu                                     [0] Back
+echo                          [7] Num Lock                                         [8] Context menu
+echo.
+echo                                                          [0] Back
 echo.
 echo                        ---------------------------------------------------------------------------
 
@@ -1446,7 +1514,7 @@ if "%choice%"=="4" (
     set Routine=SHORTCUT_ARROW
     set Rev_Routine=REV_SHORTCUT_ARROW
     set Apply=Remove arrow from shortcut
-	set Revert=Defaulte arrow shortcut
+	set Revert=Default arrow shortcut
     set menu=CUSTOMIZATION_MENU
     goto SUB_MENU
 )
@@ -1466,20 +1534,30 @@ if "%choice%"=="6" (
     set menu=CUSTOMIZATION_MENU
     goto SUB_MENU
 )
-if "%choice%"=="7" goto CONTEXT_MENU
+if "%choice%"=="7" (
+    set Routine=NUM_LOCK
+    set Rev_Routine=REV_NUM_LOCK
+    set Apply=Disable Num Lock, Caps Lock, and Scroll Lock when logging in
+	set Revert=Default Num Lock, Caps Lock, and Scroll Lock when logging in
+    set menu=CUSTOMIZATION_MENU
+    goto SUB_MENU
+)
+if "%choice%"=="8" goto CONTEXT_MENU
 if "%choice%"=="0" goto MENU
 
-call :INVALID_INPUT "(0-7)" "CUSTOMIZATION_MENU"
+echo. & echo [ERROR] Invalid selection. Please choose a valid option between (0-8)
+pause
+goto CUSTOMIZATION_MENU
 
 :FILE_EXPLORER
 cls & echo. & echo.
 echo                        ----------------------------- File explorer -------------------------------
 echo.
-echo                          [1] File Extensions                                [2] Hidden files
+echo                          [1] File Extensions                                 [2] Hidden files
 echo.
-echo                          [3] Recent Files                                   [4] Open on this PC
+echo                          [3] Recent Files                                    [4] Open on this PC
 echo.
-echo                          [5] Path in Title Bar                              [0] Back
+echo                          [5] Path in Title Bar                               [0] Back
 echo.
 echo                        ---------------------------------------------------------------------------
 
@@ -1527,7 +1605,9 @@ if "%choice%"=="5" (
 )
 if "%choice%"=="0" goto CUSTOMIZATION_MENU
 
-call :INVALID_INPUT "(0-4)" "FILE_EXPLORER"
+echo. & echo [ERROR] Invalid selection. Please choose a valid option between (0-5)
+pause
+goto FILE_EXPLORER
 
 :SHOW_EXTENSIONS
 reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" /v HideFileExt /t REG_DWORD /d 0 /f >nul
@@ -1560,11 +1640,11 @@ reg add "HKCU\Software\Policies\Microsoft\Windows\Explorer" /v NoRecentDocsHisto
 call :GO FILE_EXPLORER
 
 :THIS_PC_OPEN
-reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" /v LaunchTo /t REG_DWORD /d 1 /f
+reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" /v LaunchTo /t REG_DWORD /d 1 /f >nul
 call :GO FILE_EXPLORER
 
 :REV_THIS_PC_OPEN
-reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" /v LaunchTo /t REG_DWORD /d 2 /f
+reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" /v LaunchTo /t REG_DWORD /d 2 /f >nul
 call :GO FILE_EXPLORER
 
 :FULL_PATH
@@ -1574,7 +1654,6 @@ call :GO FILE_EXPLORER
 :REV_FULL_PATH
 reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\CabinetState" /v FullPathAddress /t REG_DWORD /d 0 /f >nul
 call :GO FILE_EXPLORER
-
 
 :DARK_MODE
 reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize" /v AppsUseLightTheme /t REG_DWORD /d 0 /f >nul
@@ -1586,7 +1665,6 @@ reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize" /v A
 reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize" /v SystemUsesLightTheme /t REG_DWORD /d 0 /f >nul
 call :GO CUSTOMIZATION_MENU
 
-
 :POWER_SETTINGS
 mkdir "%USERPROFILE%\Desktop\Powerful Settings.{ED7BA470-8E54-465E-825C-99712043E01C}" >nul
 call :GO CUSTOMIZATION_MENU
@@ -1595,7 +1673,6 @@ call :GO CUSTOMIZATION_MENU
 set "folderPath=%USERPROFILE%\Desktop\Powerful Settings.{ED7BA470-8E54-465E-825C-99712043E01C}"
 if exist "%folderPath%" rd /s /q "%folderPath%" >nul
 call :GO CUSTOMIZATION_MENU
-
 
 :SHORTCUT_ARROW
 reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Icons" /v 29 /d "C:\Windows\System32\imageres.dll,197" /f >nul
@@ -1607,32 +1684,35 @@ reg delete "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Icons"
 reg delete "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer" /v link /f >nul
 call :GO CUSTOMIZATION_MENU
 
-
 :PHOTO_VIEWER
-reg import "%~dp0Files\Windows_Photo_Viewer\Restore_Photo_Viewer.reg" >nul
+reg import "%~dp0Files\Customization\Restore_Photo_Viewer.reg" >nul
 call :GO CUSTOMIZATION_MENU
 
 :REV_PHOTO_VIEWER
-reg import "%~dp0Files\Windows_Photo_Viewer\Removing_Photo_Viewer.reg" >nul
+reg import "%~dp0Files\Customization\Removing_Photo_Viewer.reg" >nul
 call :GO CUSTOMIZATION_MENU
 
-
 :TRASH_OPTIONS
-reg import "%~dp0Files\Trach_Options\Disable_Trach.reg" >nul 2>&1
+reg import "%~dp0Files\Customization\Disable_Trash.reg" >nul 2>&1
 call :GO CUSTOMIZATION_MENU
 
 :REV_TRASH_OPTIONS
-reg import "%~dp0Files\Trach_Options\Default_Trach.reg" >nul 2>&1
+reg import "%~dp0Files\Customization\Default_Trash.reg" >nul 2>&1
 call :GO CUSTOMIZATION_MENU
 
+:NUM_LOCK
+reg import "%~dp0Files\Customization\Disable_Num_Lock.reg" >nul
+
+:REV_NUM_LOCK
+reg import "%~dp0Files\Customization\Default_Num_Lock.reg" >nul
 
 :CONTEXT_MENU
 cls & echo. & echo.
-echo                        ------------------------------- Context menu -------------------------------
+echo                        ------------------------------- Context menu ------------------------------
 echo.
 echo                          [1] Add CMD                                       [2] Add Restart Explorer
 echo. 
-echo                          [3] Add Killing frozen process                    [0] Back         
+echo                          [3] Add Killing frozen                            [0] Back
 echo.    
 echo                        ---------------------------------------------------------------------------
 
@@ -1663,7 +1743,9 @@ if "%choice%"=="3" (
 )
 if "%choice%"=="0" goto CUSTOMIZATION_MENU
 
-call :INVALID_INPUT "(0-2)" "CONTEXT_MENU"
+echo. & echo [ERROR] Invalid selection. Please choose a valid option between (0-3)
+pause
+goto CONTEXT_MENU
 
 :CMD_CONTEXT
 reg add "HKCR\Directory\shell\OpenCmdHere" /ve /d "Open Command Prompt Here (Admin)" /f >nul
@@ -1721,8 +1803,9 @@ if "%choice%"=="3" goto ACTIVATION
 if "%choice%"=="4" goto SYSTEM_INFO
 if "%choice%"=="0" goto MENU
 
-call :INVALID_INPUT "(0-4)" "SYSTEM_MENU"
-
+echo. & echo [ERROR] Invalid selection. Please choose a valid option between (0-4)
+pause
+goto SYSTEM_MENU
 
 :RESTORE_POINT
 cls & echo Creating a System Restore Point
@@ -1783,7 +1866,6 @@ sc stop swprv >>"%LogFile%" 2>&1
 echo Restore point creation completed
 call :GO SYSTEM_MENU
 
-
 :REGISTRY_BACKUP
 cls & echo Creating a Full Registry Backup
 set "BACKUP_DIR=%ProgramData%\By Windows Optimization Script\Registry Backup"
@@ -1822,14 +1904,13 @@ powershell -NoProfile -Command "$files=Get-ChildItem -Path '%BACKUP_DIR%' -Filte
 echo. & echo Registry Backup : %ZIPFILE%
 call :GO SYSTEM_MENU
 
-
 :ACTIVATION
 cls & echo. & echo.
-echo                        --------------------------------- Activation ------------------------------
+echo                        -------------------------------- Activation -------------------------------
 echo.
-echo                          [1] Windows and office                                   [2] Status
+echo                          [1] Windows and office                                    [2] Status
 echo. 
-echo                                                           [0]Back
+echo                                                          [0]Back
 echo.
 echo                        ---------------------------------------------------------------------------
 
@@ -1838,7 +1919,9 @@ if "%choice%"=="1" goto RUN_ACTIVATION
 if "%choice%"=="2" goto CHECK_ACTIVATION
 if "%choice%"=="0" goto SYSTEM_MENU 
 
-call :INVALID_INPUT "(0-2)" "ACTIVATION"
+echo. & echo [ERROR] Invalid selection. Please choose a valid option between (0-2)
+pause
+goto ACTIVATION
 
 :RUN_ACTIVATION
 cls & echo Attempting ACTIVATION using MAS script
@@ -1850,83 +1933,16 @@ cls & echo Checking current Windows ACTIVATION status
 powershell -Command "$lic = Get-CimInstance -Class SoftwareLicensingProduct | Where-Object { $_.PartialProductKey } | Select-Object -First 1; if ($lic) { Write-Host 'Description: ' $lic.Description; Write-Host 'Partial Product Key: ' $lic.PartialProductKey; $xpr = cscript //nologo slmgr.vbs /xpr; if ($xpr -match 'permanently activated') { Write-Host $xpr } else { Write-Host 'Remaining Grace Period (hrs): ' $lic.RemainingGracePeriod; Write-Host $xpr } } else { Write-Host 'No license information found.' }"
 call :GO ACTIVATION
 
-
 :SYSTEM_INFO
-cls
-echo                        ============================================================
-echo                                             SYSTEM INFORMATION 
-echo                        ============================================================
-echo.
-
-:: Basic system information
-echo.
-echo    Date/Time: %date% - %time%
-echo    Computer:  %COMPUTERNAME%
-echo    User:      %USERNAME%
-
-:: Operating System Information
-echo. & echo Operating system
-systeminfo | findstr /C:"Host Name" /C:"OS Name" /C:"OS Version" /C:"OS Manufacturer" /C:"OS Configuration" /C:"OS Build Type" /C:"Registered Owner" /C:"Original Install Date" /C:"System Manufacturer" /C:"System Type" /C:"BIOS Version" /C:"System Locale" /C:"Input Locale" /C:"Time Zone"
-
-:: Processor and Graphics Information
-echo. & echo CPU:
-powershell -Command "Get-CimInstance Win32_Processor -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name"
-
-echo. & echo GPU:
-powershell -Command "Get-CimInstance Win32_VideoController -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name"
-
-:: Memory Information
-echo. & echo Memory: 
-powershell -Command "$m = Get-CimInstance Win32_OperatingSystem; $total = [math]::Round($m.TotalVisibleMemorySize/1KB, 2); $free = [math]::Round($m.FreePhysicalMemory/1KB, 2); $used = $total - $free; Write-Host ('Total Memory: ' + $total + ' MB') -NoNewline; Write-Host (' | Used: ' + $used + ' MB') -NoNewline; Write-Host (' | Free: ' + $free + ' MB')"
-
-echo. & echo Memory slots:
-powershell -Command "Get-CimInstance Win32_PhysicalMemory | ForEach-Object { Write-Host 'Slot' $_.DeviceLocator ':' ([math]::Round($_.Capacity/1GB)) 'GB' $_.Manufacturer $_.PartNumber '('$_.Speed' MHz)' }"
-
-echo. & echo System performance:
-powershell -Command "$cpu = (Get-WmiObject Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average; $mem = Get-WmiObject Win32_OperatingSystem; $memUsed = [math]::Round((($mem.TotalVisibleMemorySize - $mem.FreePhysicalMemory) / $mem.TotalVisibleMemorySize) * 100, 1); Write-Host 'CPU Usage:' $cpu '%'; Write-Host 'Memory Usage:' $memUsed '%'"
-
-:: Storage Information
-echo. & echo Physical disks:
-powershell -Command "Get-CimInstance Win32_DiskDrive | Select-Object @{Name='Disk';Expression={$_.DeviceID}}, @{Name='Model';Expression={$_.Model}}, @{Name='Type';Expression={if ($_.Model -match 'SSD'){'SSD'}elseif ($_.MediaType -match 'Fixed hard disk media'){'HDD'}elseif ($_.SpindleSpeed -eq 0){'SSD'}elseif ($_.SpindleSpeed -gt 0){'HDD'}else{'Unknown'}}}, @{Name='Size(GB)';Expression={[math]::Round($_.Size/1GB,2)}}, InterfaceType | Format-Table -AutoSize"
-
-echo. & echo Logical drives:
-powershell -Command "try { Get-CimInstance Win32_LogicalDisk | ForEach-Object { $t=if($_.Size){[math]::Round($_.Size/1GB,2)}else{0}; $f=if($_.FreeSpace){[math]::Round($_.FreeSpace/1GB,2)}else{0}; $u=[math]::Round($t-$f,2); $p=if($t -gt 0){[math]::Round(($u/$t)*100,2)}else{0}; $d=switch ($_.DriveType){0{'Unknown'}1{'NoRoot'}2{'Removable'}3{'Local'}4{'Network'}5{'CD-ROM'}6{'RAM'}default{'Other'}}; Write-Host ('Drive {0} {1} ({2}) | Total: {3} GB | Used: {4} GB | Free: {5} GB | Usage: {6}%' -f $_.DeviceID,$d,$_.FileSystem,$t,$u,$f,$p) } } catch { Write-Host 'Logical disk information not available' }"
-
-:: SMART Disk Health Check
-echo. & echo Disk health status:
-powershell -Command "try { $smart = Get-WmiObject -Namespace root\wmi -Class MSStorageDriver_FailurePredictStatus; if ($smart) { $smart | ForEach-Object { $disk = $_; $status = if (-not $_.PredictFailure) { 'OK' } else { 'Failing' }; Write-Host ('Drive Instance: ' + $_.InstanceName + ' | SMART Status: ' + $status) } } else { Write-Host 'No SMART data found.' } } catch { Write-Host 'SMART status not available on this system.' }"
-
-:: Display Information
-echo. & echo Screen resolution:
-powershell -NoProfile -ExecutionPolicy Bypass -Command "Add-Type -AssemblyName System.Windows.Forms; $i=1; foreach ($s in [System.Windows.Forms.Screen]::AllScreens) { $size=$s.Bounds.Size; Write-Host ('Screen ' + $i + ': ' + $size.Width + 'x' + $size.Height + ' | Primary: ' + $s.Primary); $i++ }"
-
-:: Active adapters
-echo. & echo Network adapters:
-powershell -Command "Get-CimInstance Win32_NetworkAdapter | Where-Object { $_.NetConnectionStatus -eq 2 } | ForEach-Object { $type = if ($_.Name -match 'Wireless|Wi- ?Fi') { 'Wi-Fi' } else { 'Ethernet' }; Write-Host ('Name: ' + $_.Name + ' | Type: ' + $type + ' | Speed: ' + [math]::Round($_.Speed / 1MB) + ' Mbps') }"
-
-:: System health
-echo. & echo Temperature sensors:
-powershell -Command "try { $temps = Get-WmiObject -Namespace root\wmi -Class MSAcpi_ThermalZoneTemperature -ErrorAction SilentlyContinue; if ($temps) { $temps | ForEach-Object { $celsius = [math]::Round(($_.CurrentTemperature/10)-273.15,1); Write-Host 'Thermal Zone ' $_.InstanceName ':' $celsius '°C' } } else { Write-Host 'Temperature sensors: Not available via WMI' } } catch { Write-Host 'Temperature monitoring: Not accessible' }"
-
-echo. & echo Battery status:
-powershell -Command "try { $battery = Get-WmiObject -Class Win32_Battery; if ($battery) { 'Battery Level: ' + $battery.EstimatedChargeRemaining + '% | Status: ' + $(if ($battery.BatteryStatus -eq 2) {'Charging'} else {'Not Charging'}) } else { 'No battery detected (Desktop PC)' } } catch { 'Battery information not available' }"
-
-:: System Uptime
-echo. & echo Last system boot:
-powershell -Command "((Get-CimInstance Win32_OperatingSystem).LastBootUpTime).ToString('yyyy-MM-dd HH:mm:ss')"
-
-echo. & echo System Uptime:
-powershell -Command "$u=(Get-Date)-(Get-CimInstance Win32_OperatingSystem).LastBootUpTime; '{0} days, {1} hours, {2} minutes' -f $u.Days,$u.Hours,$u.Minutes"
-
-echo. & echo System information scan completed
+cls & powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0Files\System\System_Info.ps1"
 call :GO SYSTEM_MENU
 
 
 :TOOLS_MENU
-cls & echo. & echo.                                                     
+cls & echo. & echo.
 echo                        ---------------------------------- Tools ----------------------------------
 echo.
-echo                          [1] System Check                                      [2] DISM Tools
+echo                          [1] SFC Scan                                          [2] DISM Tools
 echo.  
 echo                          [3] Defragment Drive                                  [4] Check Disk 
 echo. 
@@ -1945,10 +1961,12 @@ if "%choice%"=="5" goto MEMORY_DIAG
 if "%choice%"=="6" goto CLEAN_MGR
 if "%choice%"=="0" goto MENU
 
-call :INVALID_INPUT "(0-7)" "TOOLS_MENU"
+echo. & echo [ERROR] Invalid selection. Please choose a valid option between (0-6)
+pause
+goto TOOLS_MENU
 
 :SFC
-cls & echo Running System File Checker
+cls & echo Running sfc scan
 sfc /scannow
 call :GO TOOLS_MENU
 
@@ -1956,22 +1974,24 @@ call :GO TOOLS_MENU
 cls & echo. & echo.
 echo                        ------------------------------- DISM Tools -------------------------------
 echo.
-echo                          [1] Fix corruption                                     [2] Full Cleanup
+echo                           [1] Fast check                                     [2] Deep check
 echo.                    
-echo                          [3] Deep check                                         [4] Fast check
+echo                           [3] Fix corruption                                 [4] Full Cleanup
 echo.
-echo                                                          [0] Back
+echo                                                         [0] Back
 echo.
 echo                        ---------------------------------------------------------------------------
 
 echo. & set /p choice="Select an option: " 
-if "%choice%"=="1" goto DISM_RESTORE_HEALTH
-if "%choice%"=="2" goto DISM_COMPONENT_CLEANUP
-if "%choice%"=="3" goto DISM_SCAN_HEALTH
-if "%choice%"=="4" goto DISM_CHECK_HEALTH
+if "%choice%"=="1" goto DISM_CHECK_HEALTH
+if "%choice%"=="2" goto DISM_SCAN_HEALTH
+if "%choice%"=="3" goto DISM_RESTORE_HEALTH
+if "%choice%"=="4" goto DISM_COMPONENT_CLEANUP
 if "%choice%"=="0" goto TOOLS_MENU
 
-call :INVALID_INPUT "(0-4)" "DISM_MENU"
+echo. & echo [ERROR] Invalid selection. Please choose a valid option between (0-4)
+pause
+goto DISM_MENU
 
 :DISM_RESTORE_HEALTH
 cls & echo Repairing Windows component store
@@ -2029,7 +2049,7 @@ if !errorlevel! neq 0 (echo Invalid drive letter: %drive% & goto SELECT_DRIVE)
 
 :CHECK_MENU
 cls & echo. & echo.
-echo                        ------------------------- CHKDSK for Drive %drive% ------------------------
+echo                        --------------------------------- CHKDSK ----------------------------------
 echo.
 echo                          [1] Quick Check                                          [2] Full Check
 echo.
@@ -2042,7 +2062,9 @@ if "%choice%"=="1" goto QUICK_CHECK
 if "%choice%"=="2" goto FULL_CHECK
 if "%choice%"=="0" goto TOOLS_MENU
 
-call :INVALID_INPUT "(0-2)" "CHECK_MENU"
+echo. & echo [ERROR] Invalid selection. Please choose a valid option between (0-2)
+pause
+goto CHECK_MENU
 
 :QUICK_CHECK
 cls & echo Running Quick Check on Drive %drive%:
@@ -2093,9 +2115,9 @@ echo.
 echo.
 echo                        ----------------------------------- OTHER ---------------------------------
 echo.
-echo                           [1] Run Chris Titus Tool                           [2] Run OO Shutup 10    
+echo                           [1] Run Chris Titus Tool                           [2] Run OO Shutup 10
 echo.
-echo                           [3] Internet speed test                            [0] Back        
+echo                           [3] Internet speed test                            [0] Back
 echo.
 echo                        ---------------------------------------------------------------------------
 echo.
@@ -2107,7 +2129,9 @@ if "%other_choice%"=="2" goto OO_SHUTUP
 if "%other_choice%"=="3" goto NET_SPEED_TEST
 if "%other_choice%"=="0" goto MENU
 
-call :INVALID_INPUT "(0-1)" "MENU"
+echo. & echo [ERROR] Invalid selection. Please choose a valid option between (0-3)
+pause
+goto OTHER_MENU
 
 :CHRIS_TITUS
 cls & echo Running Chris Titus Tool...
@@ -2175,7 +2199,7 @@ goto :eof
 cls & echo. & echo.
 
 echo      [1] %Apply% 
-echo.                                              
+echo.
 echo      [2] %Revert%
 echo.
 echo      [0] Back
@@ -2185,13 +2209,9 @@ if "%choice%"=="1" goto %Routine%
 if "%choice%"=="2" goto %Rev_Routine%
 if "%choice%"=="0" goto %menu%
 
-call :INVALID_INPUT "(0-2)" "SUB_MENU"
-
-
-:INVALID_INPUT
-echo. & echo [ERROR] Invalid selection. Please choose a valid option between %~1
+echo. & echo [ERROR] Invalid selection. Please choose a valid option between (0-2)
 pause
-goto %~2
+goto SUB_MENU
 
 :GO
 pause
